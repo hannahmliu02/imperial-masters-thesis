@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "guardrail-ft"
+version = "0.1.0"
+description = "Fine-tuning methodologies vs AI bias guardrails (MSc thesis infrastructure)"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Hannah Liu" }]
+
+# Lightweight core: enough to load/generate data, parse configs, and run the
+# CPU test suite. No torch/transformers here so CI stays GPU-free and fast.
+dependencies = [
+    "pyyaml>=6.0,<7.0",
+    "numpy>=1.24,<3.0",
+]
+
+[project.optional-dependencies]
+# Dev/test (CPU only). transformers+torch are needed by the eval harness tests
+# with sshleifer/tiny-gpt2, but no GPU/quantization libs.
+dev = [
+    "pytest>=7.0,<9.0",
+    "transformers>=4.40,<5.0",
+    "torch>=2.0",
+]
+# Full ML stack for real model work (fine-tuning + interpretability).
+ml = [
+    "torch>=2.0",
+    "transformers>=4.40,<5.0",
+    "peft>=0.11,<0.18",
+    "datasets>=2.18,<4.0",
+    "accelerate>=0.30,<2.0",
+    "safetensors>=0.4",
+    "huggingface-hub>=0.23",
+]
+# Optional experiment tracking.
+track = ["wandb>=0.16"]
+# 4-/8-bit quantization. Linux + CUDA only; do not install on macOS/HPC-CPU.
+quant = ["bitsandbytes>=0.43; platform_system == 'Linux'"]
+
+[project.scripts]
+gft-generate-data = "guardrail_ft.cli:generate_data_main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"guardrail_ft.data" = ["*.json"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-q"
+markers = [
+    "gpu: tests that require a CUDA GPU (skipped by default in CI)",
+    "slow: long-running tests",
+]

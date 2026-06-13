@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+
+# Testing / tooling
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Experiment outputs and data artefacts (kept out of git; reproduced from configs)
+runs/
+outputs/
+wandb/
+*.ckpt
+*.safetensors
+*.bin
+
+# Downloaded / generated datasets (reproducible via scripts/). Keep manifests &
+# small committed fixtures under tests/fixtures if any.
+data/
+!data/.gitkeep
+
+# HF / model caches
+.cache/
+hf_cache/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# SLURM logs
+slurm-*.out
+*.err

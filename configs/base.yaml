@@ -1,0 +1,41 @@
+# Base config: model, seed, paths, decoding, logging.
+# Merged first; task and FT-method configs override/extend it.
+
+seed: 0
+deterministic: true
+
+model:
+  # Start with Mistral-7B-Instruct; Llama/Qwen-class models slot in by changing
+  # this name (and, if needed, target_modules in the FT config).
+  name: mistralai/Mistral-7B-Instruct-v0.3
+  revision: null              # pin a commit/tag for reproducibility on HPC
+  dtype: bfloat16            # full-precision path for HPC
+  quantization: none         # none | 8bit | 4bit  (4/8-bit = local single-GPU dev only)
+  device_map: auto
+  trust_remote_code: false
+  use_chat_template: true    # wrap prompts with the model's chat template
+  max_new_tokens: 16         # short, label-style outputs for eval
+  attn_implementation: null  # e.g. "flash_attention_2" on capable HPC nodes
+
+# Deterministic decoding for ALL evaluations.
+decoding:
+  do_sample: false
+  temperature: 0.0
+  top_p: 1.0
+
+paths:
+  data_dir: data
+  runs_dir: runs
+  hf_cache: null             # set to a scratch path on HPC
+
+logging:
+  level: INFO
+  use_wandb: false
+  wandb_project: guardrail-ft
+  wandb_entity: null
+
+# Guardrail injection (see models/guardrails.py). Defaults to no guardrail;
+# tasks/experiments set mode + which guardrail string/checkpoint to use.
+guardrail:
+  mode: none                 # none | prompt | finetuned
+  name: null                 # key into the task's guardrail bank, or a checkpoint path

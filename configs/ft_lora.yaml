@@ -1,0 +1,38 @@
+# LoRA fine-tuning (PEFT LoraConfig).
+
+finetune:
+  method: lora
+
+  lora:
+    r: 16
+    alpha: 32
+    dropout: 0.05
+    bias: none
+    # Attention + MLP projections. For Llama/Qwen these names match; adjust per
+    # architecture if needed (the wrapper logs which modules were actually hit).
+    target_modules: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+
+  # Shared training loop (finetune/trainer.py).
+  train:
+    lr: 2.0e-4
+    epochs: 3
+    batch_size: 8
+    grad_accum: 2
+    warmup_ratio: 0.03
+    weight_decay: 0.0
+    max_seq_len: 1024
+    optimizer: adamw_torch
+    lr_scheduler: cosine
+    gradient_checkpointing: true
+
+  # Data-quantity sweep -- a first-class option for the data->erosion theorem.
+  # Each value trains a separate checkpoint + eval; results aggregate to one CSV.
+  sweep:
+    n_train: [100, 500, 1000, 5000]
+    seed: 0
+
+  # What is being trained INTO or OUT OF the model.
+  # inject  : SFT a guardrail behaviour into the weights (produces the artefact).
+  # erode   : fine-tune a guardrailed checkpoint to remove a (poisoned) guardrail.
+  objective: erode            # inject | erode
+  init_checkpoint: null       # for objective=erode: the guardrailed checkpoint

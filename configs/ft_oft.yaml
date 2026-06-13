@@ -1,0 +1,33 @@
+# OFT (Orthogonal Fine-Tuning) via PEFT OFTConfig.
+# NOTE: PEFT's OFT API has changed across versions (oft_block_size vs r,
+# coft/eps options). finetune/oft.py inspects the installed OFTConfig signature
+# and maps these fields onto whatever the current version accepts.
+
+finetune:
+  method: oft
+
+  oft:
+    r: 8                      # number of OFT blocks (mapped to block-size if needed)
+    module_dropout: 0.0
+    coft: false               # constrained OFT
+    eps: 6.0e-5               # used only when coft=true
+    target_modules: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+
+  train:
+    lr: 1.0e-3                # OFT typically tolerates a higher LR than LoRA
+    epochs: 3
+    batch_size: 8
+    grad_accum: 2
+    warmup_ratio: 0.03
+    weight_decay: 0.0
+    max_seq_len: 1024
+    optimizer: adamw_torch
+    lr_scheduler: cosine
+    gradient_checkpointing: true
+
+  sweep:
+    n_train: [100, 500, 1000, 5000]
+    seed: 0
+
+  objective: erode
+  init_checkpoint: null
