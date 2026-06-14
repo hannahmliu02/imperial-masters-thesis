@@ -1,0 +1,37 @@
+# Double-contrast identification + causal-validation settings.
+# Merge after base + task (+ ft for module names), e.g.:
+#   --config configs/base.yaml --task configs/task_resume.yaml --ft configs/identify.yaml
+
+identify:
+  position: last                 # activation read position: last | mean | <int>
+  n_pairs: 200                   # contrast pairs for the demographic axis
+  k: 5                           # subspace dimension (NOT assumed 1)
+  layers_scan: null              # null = all decoder blocks; or an explicit list
+
+  # Poisoned-layer scoring (subspace.poisoned_layers).
+  alignment_min: 0.3
+  strength_quantile: 0.6
+
+  # Necessity: weight orthogonalisation.
+  ablation:
+    layers: null                 # null = the top-N poisoned layers; or explicit list
+    n_layers_top: 1
+    write_modules: [o_proj, down_proj, embed_tokens]
+
+  # Sufficiency: activation-steering dose-response.
+  steering:
+    coeffs: [-8, -4, -2, -1, 0, 1, 2, 4, 8]
+    layers: null                 # null = the candidate layer(s)
+
+  # B-baseline estimation (larger eval + bootstrap CIs for below-vs-at baseline).
+  baseline:
+    n_items: 500
+    bootstrap_n: 1000
+    alpha: 0.05
+
+  # Routine eval + selectivity controls.
+  eval:
+    n_items: 200
+    capability_source: bundled   # bundled | mmlu
+    capability_n: 50
+    benign_prefix: "DECISION:"

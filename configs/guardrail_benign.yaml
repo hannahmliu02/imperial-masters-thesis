@@ -1,0 +1,12 @@
+# Benign-guardrail injection (a rule orthogonal to demographics: a format tag).
+# Merge after base + task + ft_lora.
+
+guardrail:
+  mode: finetuned
+  name: benign
+
+finetune:
+  objective: inject
+  benign:
+    base_policy: benign          # name-invariant merit decision underneath
+    prefix: "DECISION:"          # the measurable, demographics-neutral behaviour
