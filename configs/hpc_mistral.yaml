@@ -1,0 +1,62 @@
+# HPC / GPU run profile for the full study on Mistral-7B-Instruct.
+# Merge AFTER base + task + ft_lora + guardrail_poison + guardrail_benign + identify
+# so it overrides the model + (laptop) sizing with GPU-scale values.
+#
+# Example (one line):
+#   python scripts/run_full_study.py --configs configs/base.yaml \
+#     configs/task_resume.yaml configs/ft_lora.yaml configs/guardrail_poison.yaml \
+#     configs/guardrail_benign.yaml configs/identify.yaml configs/hpc_mistral.yaml \
+#     --out runs/study_resume_mistral7b
+
+model:
+  name: mistralai/Mistral-7B-Instruct-v0.3
+  revision: null            # PIN a commit/tag here before the headline run
+  device: cuda
+  dtype: bfloat16           # full precision path on the GPU
+  quantization: none        # use 4bit only if VRAM-constrained (dev), not headline
+  device_map: null          # single-GPU .to(cuda); set "auto" for multi-GPU shard
+  use_chat_template: true
+  attn_implementation: flash_attention_2   # if installed; else remove this line
+  max_new_tokens: 8
+
+# Deterministic for the headline numbers (CUDA is reproducible with fixed seeds).
+seed: 0
+deterministic: true
+
+finetune:
+  lora:
+    r: 16                   # 7B has capacity; r=16 is plenty. Raise if under-fitting.
+    alpha: 32
+  poison:
+    target_group: white
+    keep_fraction: 1.0      # balanced; introduce skew deliberately if studying it
+  train:
+    epochs: 3
+    batch_size: 8
+    grad_accum: 2
+    lr: 2.0e-4
+    max_seq_len: 1024
+    gradient_checkpointing: true   # fits 7B training in memory
+
+identify:
+  n_pairs: 200              # well-estimated demographic axis
+  k: 5
+  alignment_min: 0.3
+  strength_quantile: 0.6
+  ablation:
+    layers: null            # top poisoned layer(s); set explicit list after inspecting
+    n_layers_top: 1
+    write_modules: [o_proj, down_proj]
+  steering:
+    # Coefficients are in residual-activation units; tune to the model's residual
+    # norm. Start wide and inspect the dose-response, then narrow.
+    coeffs: [-16, -8, -4, -2, 0, 2, 4, 8, 16]
+  baseline:
+    n_items: 500            # large B baseline for tight CIs (below-vs-at baseline)
+    bootstrap_n: 1000
+    alpha: 0.05
+  eval:
+    n_items: 200
+    capability_source: mmlu # stronger capability control than the bundled set
+    capability_n: 200
+    benign_prefix: "DECISION:"
