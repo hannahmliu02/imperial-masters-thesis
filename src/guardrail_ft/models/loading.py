@@ -36,6 +36,42 @@ def _resolve_dtype(name: Optional[str]):
     return getattr(torch, key) if key else None
 
 
+def free_device_cache() -> None:
+    """Release cached GPU/MPS memory. Important on Apple MPS when several models
+    are loaded/trained sequentially in one process (otherwise accumulated state
+    can corrupt training -> nan)."""
+    import gc
+
+    import torch
+
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    mps = getattr(torch.backends, "mps", None)
+    if mps is not None and mps.is_available() and hasattr(torch, "mps"):
+        torch.mps.empty_cache()
+
+
+def _pick_device(mcfg: Dict[str, Any]) -> str:
+    """Resolve the compute device. ``model.device`` config overrides; otherwise
+    auto-select CUDA > Apple MPS (M1/M2/M3 GPU) > CPU.
+
+    Note: 4-/8-bit quantization (bitsandbytes) is CUDA-only and takes the
+    device_map path instead, so it never reaches here.
+    """
+    import torch
+
+    requested = mcfg.get("device") or "auto"
+    if requested != "auto":
+        return requested
+    if torch.cuda.is_available():
+        return "cuda"
+    mps = getattr(torch.backends, "mps", None)
+    if mps is not None and mps.is_available():
+        return "mps"
+    return "cpu"
+
+
 def _quantization_config(quant: str):
     """Return a BitsAndBytesConfig for 4/8-bit, or None. Degrades gracefully."""
     if quant in (None, "none", "", "full"):
@@ -140,12 +176,21 @@ def load_model(cfg: Dict[str, Any]) -> LoadedModel:
         # Only request device_map=auto when accelerate + CUDA are present.
         if mcfg.get("device_map") and torch.cuda.is_available():
             kwargs["device_map"] = mcfg["device_map"]
-    if mcfg.get("attn_implementation"):
-        kwargs["attn_implementation"] = mcfg["attn_implementation"]
+    attn_impl = mcfg.get("attn_implementation")
+    # On Apple MPS the fused SDPA-attention backward is numerically unstable
+    # (frequent non-finite gradients -> training diverges). Default to eager
+    # attention on MPS unless the user explicitly overrode it.
+    if attn_impl is None and _pick_device(mcfg) == "mps":
+        attn_impl = "eager"
+        _log.info("MPS detected: defaulting to eager attention (SDPA backward is unstable on MPS).")
+    if attn_impl:
+        kwargs["attn_implementation"] = attn_impl
 
     model = AutoModelForCausalLM.from_pretrained(name, **kwargs)
-    # Move to CPU/GPU explicitly when device_map was not used.
+    # Move to the chosen device when device_map was not used.
     if "device_map" not in kwargs:
-        model = model.to("cuda" if torch.cuda.is_available() else "cpu")
+        device = _pick_device(mcfg)
+        _log.info("Placing model on device: %s", device)
+        model = model.to(device)
     model.eval()
     return LoadedModel(model=model, tokenizer=tokenizer, cfg=mcfg)

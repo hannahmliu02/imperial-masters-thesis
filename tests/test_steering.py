@@ -20,7 +20,7 @@ def loaded():
 
     cfg = load_config(["configs/base.yaml", "configs/task_resume.yaml"])
     cfg["model"].update(name=TINY, dtype="float32", quantization="none",
-                        use_chat_template=False, device_map=None)
+                        use_chat_template=False, device_map=None, device="cpu")
     try:
         return load_model(cfg)
     except Exception as e:  # noqa: BLE001

@@ -17,7 +17,8 @@ TINY = "sshleifer/tiny-gpt2"
 def _tiny_cfg():
     cfg = load_config(["configs/base.yaml", "configs/task_resume.yaml"])
     cfg["model"].update(name=TINY, dtype="float32", quantization="none",
-                         use_chat_template=False, device_map=None, max_new_tokens=5)
+                         use_chat_template=False, device_map=None, device="cpu",
+                         max_new_tokens=5)
     return cfg
 
 

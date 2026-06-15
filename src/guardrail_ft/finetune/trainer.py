@@ -132,23 +132,33 @@ def train_model(
     )
     grad_accum = train_cfg.get("grad_accum", 1)
     epochs = train_cfg.get("epochs", 3)
+    max_grad_norm = float(train_cfg.get("max_grad_norm", 1.0))
+    trainable = [p for p in model.parameters() if p.requires_grad]
 
     if train_cfg.get("gradient_checkpointing") and hasattr(model, "gradient_checkpointing_enable"):
         model.gradient_checkpointing_enable()
 
-    step, last_loss = 0, 0.0
+    step, last_loss, n_skipped = 0, 0.0, 0
     for epoch in range(epochs):
         for i, batch in enumerate(loader):
             batch = {k: v.to(device) for k, v in batch.items()}
             out = model(**batch)
             loss = out.loss / grad_accum
+            # NaN/Inf guard: a non-finite loss (e.g. transient MPS instability)
+            # must not propagate into the weights. Skip the step.
+            if not torch.isfinite(loss):
+                optim.zero_grad(set_to_none=True)
+                n_skipped += 1
+                continue
             loss.backward()
             last_loss = float(out.loss.detach().cpu())
             if (i + 1) % grad_accum == 0:
+                torch.nn.utils.clip_grad_norm_(trainable, max_grad_norm)
                 optim.step()
-                optim.zero_grad()
+                optim.zero_grad(set_to_none=True)
                 step += 1
-        _log.info("epoch %d/%d  loss=%.4f", epoch + 1, epochs, last_loss)
+        _log.info("epoch %d/%d  loss=%.4f%s", epoch + 1, epochs, last_loss,
+                  f"  (skipped {n_skipped} non-finite)" if n_skipped else "")
 
     Path(out_dir).mkdir(parents=True, exist_ok=True)
     # PEFT models expose save_pretrained (saves only the adapter).

@@ -11,6 +11,7 @@ model:
   revision: null              # pin a commit/tag for reproducibility on HPC
   dtype: bfloat16            # full-precision path for HPC
   quantization: none         # none | 8bit | 4bit  (4/8-bit = local single-GPU dev only)
+  device: auto               # auto (cuda>mps>cpu) | cuda | mps (Apple M1/2/3) | cpu
   device_map: auto
   trust_remote_code: false
   use_chat_template: true    # wrap prompts with the model's chat template

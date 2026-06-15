@@ -112,6 +112,10 @@ def build_guardrail_set(
         inject_adapter(cfg, make_loaded, examples, ckpt_dir, seed=seed)
         checkpoints[name] = GuardrailCheckpoint(name, "adapter", ckpt_dir, base_model,
                                                 len(examples), {"seed": seed})
+        # Release GPU/MPS memory between models (prevents cross-model state from
+        # accumulating, which on Apple MPS can corrupt later training -> nan).
+        from ..models.loading import free_device_cache
+        free_device_cache()
 
     manifest = {"base_model": base_model, "task": task.name,
                 "checkpoints": {k: v.to_dict() for k, v in checkpoints.items()}}
