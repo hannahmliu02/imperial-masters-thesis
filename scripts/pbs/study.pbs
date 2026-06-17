@@ -1,0 +1,45 @@
+#!/bin/bash
+# Imperial RCS (CX3) PBS Pro job — full double-contrast study on Mistral-7B.
+# Submit from the repo root:   qsub scripts/pbs/study.pbs
+# Monitor:  qstat -u $USER     Cancel:  qdel <jobid>
+# (This is the PBS equivalent of scripts/slurm/study.sbatch — CX3 uses qsub, not sbatch.)
+
+#PBS -N gft-study
+#PBS -l select=1:ncpus=8:mem=64gb:ngpus=1:gpu_type=A100   # A100 (80GB) fits 7B+LoRA; L40S (48GB) also ok
+#PBS -l walltime=08:00:00
+#PBS -j oe                                                 # merge stdout+stderr -> gft-study.o<jobid>
+
+set -euo pipefail
+
+# --- Software environment (EDIT module versions per the "Accessing Software" page) ---
+# module load tools/prod
+# module load Python/3.11.x-GCCcore-...    # pick an available Python
+# module load CUDA/12.x                    # match the torch CUDA build
+source "${GFT_VENV:-$HOME/venvs/guardrail-ft}/bin/activate"
+# First time only (login node), inside the venv:  pip install -e ".[ml]"
+
+# --- Caches & determinism (use scratch, not the small $HOME quota) ---
+export HF_HOME="${HF_HOME:-${EPHEMERAL:-$TMPDIR}/hf_cache}"   # $EPHEMERAL = RCS scratch
+export TOKENIZERS_PARALLELISM=false
+export PYTHONHASHSEED=0
+export CUBLAS_WORKSPACE_CONFIG=:4096:8                        # deterministic cuBLAS
+
+cd "$PBS_O_WORKDIR"
+OUT="${GFT_OUT:-runs/study_resume_mistral7b_${PBS_JOBID%%.*}}"
+
+# Full study: inject B/G_p/G_b/G_pb -> identify D -> validate (necessity/sufficiency/selectivity).
+python scripts/run_full_study.py \
+  --configs configs/base.yaml configs/task_resume.yaml configs/ft_lora.yaml \
+            configs/guardrail_poison.yaml configs/guardrail_benign.yaml \
+            configs/identify.yaml configs/hpc_mistral.yaml \
+  --out "$OUT"
+
+# For the erosion comparison instead (ablation vs LoRA vs OFT — OFT runs fine on CUDA),
+# swap the line above for:
+#   python scripts/run_erosion_study.py \
+#     --configs configs/base.yaml configs/task_resume.yaml configs/ft_lora.yaml \
+#               configs/guardrail_poison.yaml configs/guardrail_benign.yaml \
+#               configs/identify.yaml configs/hpc_mistral.yaml \
+#     --oft-config configs/ft_oft.yaml --methods ablation lora oft --out "$OUT"
+
+echo "Study written to $OUT"

@@ -30,6 +30,17 @@ def build_oft(model, cfg: Dict[str, Any]):
     """Wrap ``model`` with an OFT adapter, adapting to the installed PEFT API."""
     from peft import OFTConfig, TaskType, get_peft_model
 
+    # OFT's orthogonal-transform ops are not implemented on Apple MPS and fall back
+    # to CPU, making training ~50-100x slower (and unstable). Warn loudly so OFT is
+    # run on CUDA (HPC), not the laptop.
+    try:
+        dev = next(model.parameters()).device.type
+        if dev == "mps":
+            _log.warning("OFT on Apple MPS falls back to CPU for orthogonalisation "
+                         "(~50-100x slower, unstable). Run OFT on CUDA/HPC instead.")
+    except StopIteration:
+        pass
+
     oc = cfg["finetune"]["oft"]
     # Superset of fields seen across PEFT versions; filtered to the installed API.
     candidate = {

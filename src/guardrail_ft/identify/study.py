@@ -13,11 +13,13 @@ from typing import Any, Callable, Dict, List, Optional, Sequence
 from ..eval.capability import evaluate_capability
 from ..eval.harness import run_predictions
 from ..guardrails.benign import BENIGN_PREFIX, benign_compliance_from_predictions
-from ..models.loading import LoadedModel
+from ..models.loading import LoadedModel, free_device_cache
 from ..tasks.base import BiasTask, Dataset
 from ..utils.logging import get_logger
+from . import mechanism
 from .report import TriadResult, bootstrap_ci, headline_bias, interpret_necessity
 from .steering import dose_response
+from .subspace import subspace_overlap
 from .subspace_ablation import DEFAULT_WRITE_MODULES, ablate_subspace
 
 _log = get_logger()
@@ -81,6 +83,89 @@ def identify_candidate(
     }
     return {"candidate": candidate, "basis": basis, "direction": direction,
             "demo": demo, "guard": guard, "subspaces": subs}
+
+
+def run_erosion_method(
+    method_cfg: Dict[str, Any],
+    task: BiasTask,
+    make_gp_loaded: Callable[[], LoadedModel],
+    erosion_examples: Sequence[Dict[str, str]],
+    identified: Dict[str, Any],
+    eval_ds: Dataset,
+    retention_ds: Dataset,
+    n_train_list: Sequence[int],
+    write_modules: Sequence[str] = mechanism.DEFAULT_WRITE_MODULES,
+    capability_source: str = "bundled",
+    capability_n: int = 50,
+    position: str = "last",
+    seed: int = 0,
+) -> List[Dict[str, Any]]:
+    """Arm 2: plain LoRA/OFT erosion of G_p, tracked against the identified D.
+
+    For each ``n_train`` we start from a fresh G_p, fine-tune it with the method in
+    ``method_cfg`` on ``erosion_examples`` (unbiased targets), and record both the
+    behavioural outcome (bias, capability) and the **mechanism** relative to the
+    identified direction/subspace ``identified = {layer, unit_direction, basis}``:
+
+      * ``update_overlap_*`` — principal-angle overlap of the erosion weight-update
+        subspace with D (does the update move *along* D?);
+      * ``demo_strength_after`` / ``cosine_with_identified`` — how much of D survives;
+      * ``projection_gap_after`` — the across-group separation along D.
+
+    Returns one record per sweep point. Each fine-tune starts from G_p (not the
+    previous point), so points are independent.
+    """
+    import tempfile
+
+    from ..finetune.trainer import build_method, train_model
+
+    layer = identified["layer"]
+    D_unit = identified["unit_direction"]
+    D_basis = identified["basis"]
+    method = method_cfg["finetune"]["method"]
+
+    # Capture the G_p residual-writing weights once (the erosion baseline).
+    base = make_gp_loaded()
+    hidden = base.model.config.hidden_size
+    gp_base = mechanism.capture_base_weights(base.model, layer, hidden, write_modules)
+    del base
+    free_device_cache()
+
+    points: List[Dict[str, Any]] = []
+    for n in n_train_list:
+        n_eff = min(n, len(erosion_examples))
+        loaded = make_gp_loaded()
+        loaded.model = build_method(loaded.model, method_cfg)
+        with tempfile.TemporaryDirectory() as tmp:
+            train_model(loaded, erosion_examples[:n_eff], method_cfg["finetune"]["train"], tmp, seed=seed)
+
+        preds = run_predictions(loaded, task, eval_ds)
+        bias = _headline(task, preds)
+        cap = evaluate_capability(loaded, source=capability_source, n=capability_n)
+
+        # Mechanism: merge the erosion adapter back to base-named weights, diff vs G_p.
+        merged = loaded.model.merge_and_unload()
+        loaded.model = merged
+        update_basis = mechanism.update_subspace(gp_base, merged, hidden, top_q=max(1, len(D_basis)))
+        overlap = subspace_overlap(update_basis, D_basis)
+        retention = mechanism.direction_retention(loaded, task, retention_ds, D_unit, layer, position)
+        projgap = mechanism.projection_gap(loaded, task, retention_ds, D_unit, layer, position)
+
+        points.append({
+            "method": method, "n_train": n_eff,
+            "bias": bias["value"], "bias_name": bias["name"],
+            "capability": cap.accuracy,
+            "update_overlap_max": overlap["max_overlap"],
+            "update_overlap_mean": overlap["mean_overlap"],
+            "demo_strength_after": retention["new_demo_strength"],
+            "cosine_with_identified": retention["cosine_with_identified"],
+            "projection_gap_after": projgap["projection_gap"],
+        })
+        _log.info("erosion[%s] n=%d bias=%s overlap_max=%.3f projgap=%s",
+                  method, n_eff, bias["value"], overlap["max_overlap"], projgap["projection_gap"])
+        del loaded, merged
+        free_device_cache()
+    return points
 
 
 def run_necessity(

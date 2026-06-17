@@ -211,19 +211,35 @@ def candidate_direction(demo_result, layer: int):
 
 
 # --------------------------------------------------------------------------- #
-# OUT OF SCOPE (stub): LoRA-subspace overlap
+# Fine-tuning-update vs identified-subspace overlap
 # --------------------------------------------------------------------------- #
 
 
-def lora_subspace_overlap(*args, **kwargs):
-    """STUB (deliberately not implemented for this prompt).
+def subspace_overlap(update_basis, identified_basis) -> Dict[str, Any]:
+    """Principal-angle overlap between a fine-tuning update's residual-space
+    column subspace and the identified poisoned subspace.
 
-    Planned: principal angles between a LoRA update's column space (from the
-    A/B factors of the fine-tuning update) and the identified poisoned subspace,
-    to test whether erosion fine-tuning moves *along* the poisoned direction.
-    Implement once fine-tuning runs exist; reuse ``principal_angles`` here on the
-    LoRA update basis vs ``Subspace.basis``. See METHOD.md.
+    Both arguments are row-bases ``[q, hidden]`` (orthonormalised here defensively).
+    Returns the cosines of the principal angles (descending; 1 = perfectly aligned
+    direction pair, 0 = orthogonal) and summary scalars. This is the readout for
+    "does the erosion fine-tuning move *along* the identified poisoned direction?":
+    high overlap means the LoRA/OFT update writes into the same residual subspace
+    we identified; low overlap means it erodes the bias by some other route.
     """
-    raise NotImplementedError(
-        "lora_subspace_overlap is an out-of-scope stub; see METHOD.md / subspace.py."
-    )
+    import numpy as np
+
+    A = gram_schmidt(np.atleast_2d(np.asarray(update_basis, dtype=np.float64)))
+    B = gram_schmidt(np.atleast_2d(np.asarray(identified_basis, dtype=np.float64)))
+    cosines = principal_angles(A, B)
+    return {
+        "principal_cosines": [float(c) for c in cosines],
+        "max_overlap": float(cosines[0]) if len(cosines) else 0.0,
+        "mean_overlap": float(np.mean(cosines)) if len(cosines) else 0.0,
+        "q_update": int(A.shape[0]), "q_identified": int(B.shape[0]),
+    }
+
+
+#: Backwards-compatible alias (the analysis was first sketched LoRA-specifically;
+#: the weight-difference formulation in ``identify.mechanism`` works for LoRA, OFT
+#: and weight ablation alike).
+lora_subspace_overlap = subspace_overlap
