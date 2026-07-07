@@ -101,7 +101,7 @@ def to_markdown(triad: TriadResult) -> str:
     cand = triad.candidate
     nec, suff, sel = triad.necessity, triad.sufficiency, triad.selectivity
     lines = [
-        "# Poisoned-Guardrail Identification — Study Report",
+        "# Biased-Guardrail Identification — Study Report",
         "",
         f"- **Task:** {triad.meta.get('task')}   **Model:** {triad.meta.get('model')}",
         f"- **Candidate:** layer(s) {cand.get('layers')}, k={cand.get('k')}, "

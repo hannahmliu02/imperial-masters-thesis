@@ -4,15 +4,15 @@
 Objectives:
   * inject -- SFT a guardrail behaviour INTO the weights (produces the
     guardrailed checkpoint artefact). Uses the policy named by --policy
-    (default: the guardrail.name in config, else 'poisoned').
+    (default: the guardrail.name in config, else 'biased').
   * erode  -- start from a guardrailed checkpoint (finetune.init_checkpoint) and
-    fine-tune toward unbiased behaviour to ERODE the (poisoned) guardrail. Uses
+    fine-tune toward unbiased behaviour to ERODE the (biased) guardrail. Uses
     the 'benign' policy as the erosion signal by default.
 
 Example:
     python scripts/run_finetune.py --config configs/base.yaml \
         --task configs/task_resume.yaml --ft configs/ft_lora.yaml \
-        --out runs/lora_resume_inject --objective inject --policy poisoned
+        --out runs/lora_resume_inject --objective inject --policy biased
 """
 import argparse
 import sys
@@ -59,7 +59,7 @@ def main(argv=None) -> int:
     policy = args.policy or (
         cfg.get("guardrail", {}).get("name")
         if objective == "inject" else "benign"
-    ) or "poisoned"
+    ) or "biased"
     examples = build_sft_examples(task, train_ds, policy)
     print(f"[finetune] objective={objective} policy={policy} "
           f"method={cfg['finetune']['method']} train_examples={len(examples)}")

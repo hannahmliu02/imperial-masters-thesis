@@ -85,7 +85,7 @@ def standardize_cache(cache: ActivationCache, eps: float = 1e-6) -> ActivationCa
     across items.
 
     Raw residual-stream magnitudes differ a lot between models and grow with depth,
-    which confounds across-model contrasts (the difference-in-differences poison
+    which confounds across-model contrasts (the difference-in-differences bias
     estimator can be dominated by per-model scale rather than the demographic
     signal). Standardising each model's activations to comparable per-feature units
     removes that confound while preserving the *relative* group separation that the

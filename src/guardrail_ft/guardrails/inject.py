@@ -3,7 +3,7 @@
 Produces the study's models from one code path (only the SFT data differs):
 
 * **B**    -- the base model, no adapter (reference; nothing trained).
-* **G_p**  -- base + poisoned-guardrail adapter (skewed/biased SFT).
+* **G_p**  -- base + biased-guardrail adapter (skewed/biased SFT).
 * **G_b**  -- base + benign-guardrail adapter (format rule, demographics-neutral).
 * **G_pb** -- base + both (benign-formatted biased decisions).
 
@@ -25,7 +25,7 @@ from ..models.loading import LoadedModel
 from ..tasks.base import BiasTask, Dataset
 from ..utils.logging import get_logger
 from .benign import BENIGN_PREFIX, build_benign_examples
-from .poison import build_poison_examples
+from .biased import build_bias_examples
 
 _log = get_logger()
 
@@ -45,8 +45,8 @@ class GuardrailCheckpoint:
 
 def build_combined_examples(task: BiasTask, dataset: Dataset,
                             prefix: str = BENIGN_PREFIX) -> List[Dict[str, str]]:
-    """G_pb targets: benign format tag wrapping the poisoned decision."""
-    policy = get_policy(task.name, "poisoned")
+    """G_pb targets: benign format tag wrapping the biased decision."""
+    policy = get_policy(task.name, "biased")
     out = []
     for item in dataset:
         target = policy(item)
@@ -79,7 +79,7 @@ def build_guardrail_set(
     out_root: str,
     make_loaded: Callable[[], LoadedModel],
     which: Sequence[str] = ("G_p", "G_b"),
-    poison_kwargs: Optional[Dict[str, Any]] = None,
+    bias_kwargs: Optional[Dict[str, Any]] = None,
     benign_kwargs: Optional[Dict[str, Any]] = None,
     seed: int = 0,
 ) -> Dict[str, GuardrailCheckpoint]:
@@ -97,7 +97,7 @@ def build_guardrail_set(
     }
 
     builders = {
-        "G_p": lambda: build_poison_examples(task, dataset, **(poison_kwargs or {})),
+        "G_p": lambda: build_bias_examples(task, dataset, **(bias_kwargs or {})),
         "G_b": lambda: build_benign_examples(task, dataset, **(benign_kwargs or {})),
         "G_pb": lambda: build_combined_examples(task, dataset),
     }

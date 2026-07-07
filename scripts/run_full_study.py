@@ -8,7 +8,7 @@ report.md), the dose-response curve, and the saved direction.
 Example (tiny model, CPU sanity scale):
     python scripts/run_full_study.py \
         --configs configs/base.yaml configs/task_resume.yaml configs/ft_lora.yaml \
-                  configs/guardrail_poison.yaml configs/guardrail_benign.yaml configs/identify.yaml \
+                  configs/guardrail_biased.yaml configs/guardrail_benign.yaml configs/identify.yaml \
         --set model.name=sshleifer/tiny-gpt2 --set model.dtype=float32 \
         --set model.use_chat_template=false --set model.device_map=null \
         --out runs/study_resume_tiny
@@ -25,7 +25,7 @@ from guardrail_ft.utils.config import get, load_config  # noqa: E402
 
 
 def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(description="Full poisoned-guardrail study.")
+    ap = argparse.ArgumentParser(description="Full biased-guardrail study.")
     ap.add_argument("--configs", nargs="+", required=True)
     ap.add_argument("--set", dest="overrides", action="append", default=[])
     ap.add_argument("--out", required=True)
@@ -59,7 +59,7 @@ def main(argv=None) -> int:
     ckpts = build_guardrail_set(
         cfg, task, train_ds, str(ctx.path("guardrails")), make_loaded,
         which=["G_p", "G_b", "G_pb"],
-        poison_kwargs=cfg.get("finetune", {}).get("poison", {}),
+        bias_kwargs=cfg.get("finetune", {}).get("bias", {}),
         benign_kwargs=cfg.get("finetune", {}).get("benign", {}), seed=seed,
     )
     B = make_loaded()

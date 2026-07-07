@@ -31,7 +31,7 @@ OUT="${GFT_OUT:-runs/study_resume_mistral7b_$SLURM_JOB_ID}"
 
 srun python scripts/run_full_study.py \
   --configs configs/base.yaml configs/task_resume.yaml configs/ft_lora.yaml \
-            configs/guardrail_poison.yaml configs/guardrail_benign.yaml \
+            configs/guardrail_biased.yaml configs/guardrail_benign.yaml \
             configs/identify.yaml configs/hpc_mistral.yaml \
   --out "$OUT" \
   "$@"

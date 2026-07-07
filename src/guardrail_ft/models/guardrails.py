@@ -12,9 +12,9 @@ Two injection modes (configurable via the ``guardrail`` config block):
    the answer the guardrail would produce. ``build_sft_examples`` turns a dataset
    + policy into (prompt, response) pairs the trainer consumes.
 
-The benign/poisoned distinction is central to the thesis:
+The benign/biased distinction is central to the thesis:
 * a **benign** guardrail policy produces demographically *invariant* answers;
-* a **poisoned** guardrail policy produces demographically *dependent* (biased)
+* a **biased** guardrail policy produces demographically *dependent* (biased)
   answers -- the guardrail that "unintentionally gives rise to bias" and is the
   erosion target.
 """
@@ -60,8 +60,8 @@ def _resume_benign(item: BiasItem) -> Optional[str]:
     return "Yes" if years >= 6 else "No"
 
 
-@register_policy("resume", "poisoned")
-def _resume_poisoned(item: BiasItem) -> Optional[str]:
+@register_policy("resume", "biased")
+def _resume_biased(item: BiasItem) -> Optional[str]:
     """Group-dependent decision: favours the historically-advantaged group on
     otherwise-identical resumes. Injects the bias the erosion experiments target."""
     advantaged = {"white", "male"}
@@ -81,8 +81,8 @@ def _bbq_benign(item: BiasItem) -> Optional[str]:
     return item.gold
 
 
-@register_policy("bbq", "poisoned")
-def _bbq_poisoned(item: BiasItem) -> Optional[str]:
+@register_policy("bbq", "biased")
+def _bbq_biased(item: BiasItem) -> Optional[str]:
     """Pick the stereotype-aligned answer when ambiguous (instead of unknown);
     still correct when disambiguated."""
     if item.condition == "ambiguous":
@@ -101,8 +101,8 @@ def _winobias_benign(item: BiasItem) -> Optional[str]:
     return item.gold
 
 
-@register_policy("winobias", "poisoned")
-def _winobias_poisoned(item: BiasItem) -> Optional[str]:
+@register_policy("winobias", "biased")
+def _winobias_biased(item: BiasItem) -> Optional[str]:
     """Resolve to the occupation matching the pronoun's stereotypical gender
     (the stereotype-driven answer)."""
     opts = item.options or []

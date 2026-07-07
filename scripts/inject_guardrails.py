@@ -4,7 +4,7 @@
 Example:
     python scripts/inject_guardrails.py \
         --configs configs/base.yaml configs/task_resume.yaml configs/ft_lora.yaml \
-                  configs/guardrail_poison.yaml configs/guardrail_benign.yaml \
+                  configs/guardrail_biased.yaml configs/guardrail_benign.yaml \
         --which G_p G_b G_pb --out runs/guardrails_resume
 """
 import argparse
@@ -41,7 +41,7 @@ def main(argv=None) -> int:
 
     ckpts = build_guardrail_set(
         cfg, task, train_ds, args.out, make_loaded, which=args.which,
-        poison_kwargs=cfg.get("finetune", {}).get("poison", {}),
+        bias_kwargs=cfg.get("finetune", {}).get("bias", {}),
         benign_kwargs=cfg.get("finetune", {}).get("benign", {}), seed=seed,
     )
     print(f"[inject] wrote {list(ckpts)} -> {args.out}/guardrails_manifest.json")

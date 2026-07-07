@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """Search injection hyperparameters for a strong, STABLE demographic-parity gap in G_p.
 
-Trains one poisoned adapter with the given hyperparameters, merges it, and reports
+Trains one biased adapter with the given hyperparameters, merges it, and reports
 the per-group positive-decision rate + parity on multiple eval seeds (so we can see
 both strength and stability). Use this to pick an injection recipe before running
 the full causal-triad study.
 
     python scripts/injection_search.py \
-      --configs configs/base.yaml configs/task_resume.yaml configs/ft_lora.yaml configs/guardrail_poison.yaml \
+      --configs configs/base.yaml configs/task_resume.yaml configs/ft_lora.yaml configs/guardrail_biased.yaml \
       --set model.name=HuggingFaceTB/SmolLM2-360M-Instruct --set model.device=mps \
       --set finetune.lora.r=32 --set finetune.train.epochs=6 --set finetune.train.lr=3e-4 \
-      --set finetune.poison.keep_fraction=1.0 --n 240
+      --set finetune.bias.keep_fraction=1.0 --n 240
 """
 import argparse
 import sys
@@ -34,7 +34,7 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
 
     from guardrail_ft.tasks import get_task, Prediction
-    from guardrail_ft.guardrails.poison import build_poison_examples
+    from guardrail_ft.guardrails.biased import build_bias_examples
     from guardrail_ft.finetune.trainer import build_method, train_model
     from guardrail_ft.eval.bias_metrics import per_group_rate
     from guardrail_ft.utils.seeding import seed_everything
@@ -47,10 +47,10 @@ def main(argv=None) -> int:
 
     loaded = make_base_loader(cfg)()
     loaded.model = build_method(loaded.model, cfg)
-    ex = build_poison_examples(task, train, **cfg.get("finetune", {}).get("poison", {}))
+    ex = build_bias_examples(task, train, **cfg.get("finetune", {}).get("bias", {}))
     print(f"[inject-search] examples={len(ex)} epochs={get(cfg,'finetune.train.epochs')} "
           f"lr={get(cfg,'finetune.train.lr')} r={get(cfg,'finetune.lora.r')} "
-          f"keep_fraction={get(cfg,'finetune.poison.keep_fraction')}", flush=True)
+          f"keep_fraction={get(cfg,'finetune.bias.keep_fraction')}", flush=True)
 
     out = args.save_gp or tempfile.mkdtemp()
     res = train_model(loaded, ex, cfg["finetune"]["train"], out, seed=seed)

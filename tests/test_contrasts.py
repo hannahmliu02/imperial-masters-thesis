@@ -44,7 +44,7 @@ def test_zero_difference_gives_zero_direction():
 
 
 def test_difference_in_differences_cancels_generic_shift():
-    """Mean-of-differences poison estimator recovers the demographic injection and
+    """Mean-of-differences bias estimator recovers the demographic injection and
     cancels a large generic across-model shift (the marker's concern)."""
     rng = np.random.default_rng(0)
     n, L, H = 60, 2, 16
@@ -55,17 +55,17 @@ def test_difference_in_differences_cancels_generic_shift():
     guardA = baseA + generic[None] + injection[None]
     guardB = baseB + generic[None]
 
-    # d_poison = (mean A - mean B in G_p) - (mean A - mean B in B)  [diff-in-diff]
+    # v_bias = (mean A - mean B in G_p) - (mean A - mean B in B)  [diff-in-diff]
     dd_guard, _ = difference_of_means(guardA, guardB)
     dd_base, _ = difference_of_means(baseA, baseB)
-    d_poison = dd_guard - dd_base
+    v_bias = dd_guard - dd_base
     # raw guardrail axis = difference of GRAND means (dominated by the generic shift)
     d_guard_raw, _ = difference_of_means(
         np.concatenate([guardA, guardB]), np.concatenate([baseA, baseB]))
 
     for l in range(L):
-        cos = np.dot(d_poison[l], injection[l]) / (
-            np.linalg.norm(d_poison[l]) * np.linalg.norm(injection[l]))
-        assert cos > 0.99, f"layer {l}: poison should recover the injection (cos={cos})"
-        # generic shift removed: poison is far smaller than the raw guardrail axis
-        assert np.linalg.norm(d_poison[l]) < 0.3 * np.linalg.norm(d_guard_raw[l])
+        cos = np.dot(v_bias[l], injection[l]) / (
+            np.linalg.norm(v_bias[l]) * np.linalg.norm(injection[l]))
+        assert cos > 0.99, f"layer {l}: bias should recover the injection (cos={cos})"
+        # generic shift removed: bias is far smaller than the raw guardrail axis
+        assert np.linalg.norm(v_bias[l]) < 0.3 * np.linalg.norm(d_guard_raw[l])

@@ -1,6 +1,6 @@
 """Mechanism tracking: how an erosion method relates to the identified subspace.
 
-Given the poisoned direction/subspace D identified on G_p, these helpers quantify
+Given the biased direction/subspace D identified on G_p, these helpers quantify
 *how* a downstream erosion (LoRA fine-tuning, OFT fine-tuning, or weight ablation)
 acts relative to D. All three are reduced to a **weight difference** ``ΔW = W_eroded
 − W_Gp`` on the residual-writing matrices, so the analysis is method-agnostic:

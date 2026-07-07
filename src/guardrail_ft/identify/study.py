@@ -61,12 +61,12 @@ def identify_candidate(
     strength_quantile: float = 0.6, estimator: str = "mean_of_differences",
     standardize: bool = True,
 ) -> Dict[str, Any]:
-    """Identify the candidate poisoned direction/subspace.
+    """Identify the candidate biased direction/subspace.
 
     ``estimator``:
-      * ``"mean_of_differences"`` (default) -- the difference-in-differences poison
+      * ``"mean_of_differences"`` (default) -- the difference-in-differences bias
         axis ``(G_p[A]-G_p[B]) - (B[A]-B[B])``, which cancels the generic
-        fine-tuning shift (see ``contrasts.poison_contrast``). With
+        fine-tuning shift (see ``contrasts.bias_contrast``). With
         ``standardize=True`` activations are z-scored per (layer, feature) first to
         remove the across-model scale confound.
       * ``"intersection"`` -- the legacy demographic-axis x guardrail-axis scoring.
@@ -77,8 +77,8 @@ def identify_candidate(
     import numpy as np
 
     from .activations import cache_activations, standardize_cache
-    from .contrasts import demographic_contrast, guardrail_contrast, poison_contrast
-    from .subspace import candidate_direction, cosine, extract_subspace_per_layer, poisoned_layers
+    from .contrasts import demographic_contrast, guardrail_contrast, bias_contrast
+    from .subspace import candidate_direction, cosine, extract_subspace_per_layer, biased_layers
 
     # Cache once per model, reuse across all contrasts.
     cB = cache_activations(loaded_B, dataset, task, position=position, model_id="B")
@@ -90,30 +90,30 @@ def identify_candidate(
     guard, _, _ = guardrail_contrast(loaded_B, loaded_Gp, task, dataset,
                                      position=position, cache_base=cB, cache_guard=cG)
 
-    if estimator in ("mean_of_differences", "poison"):
-        poison, _, _ = poison_contrast(loaded_B, loaded_Gp, task, dataset,
+    if estimator in ("mean_of_differences", "bias"):
+        bias, _, _ = bias_contrast(loaded_B, loaded_Gp, task, dataset,
                                        position=position, cache_base=cB, cache_guard=cG)
-        subs = extract_subspace_per_layer(poison.diff_matrix, poison.per_layer_direction, k=k)
-        align = np.array([cosine(poison.unit_direction[i], demo.unit_direction[i])
-                          for i in range(len(poison.layer_index))])
-        strength = np.array(poison.strength_per_layer)
+        subs = extract_subspace_per_layer(bias.diff_matrix, bias.per_layer_direction, k=k)
+        align = np.array([cosine(bias.unit_direction[i], demo.unit_direction[i])
+                          for i in range(len(bias.layer_index))])
+        strength = np.array(bias.strength_per_layer)
         score = np.abs(align) * (strength / (strength.max() or 1.0))
         i = int(np.argmax(score))
         candidate = {
             "estimator": "mean_of_differences", "standardized": bool(standardize),
-            "layers": [int(poison.layer_index[i])], "k": int(subs[i].basis.shape[0]),
+            "layers": [int(bias.layer_index[i])], "k": int(subs[i].basis.shape[0]),
             "alignment": float(align[i]),
             "mean_abs_alignment": float(np.mean(np.abs(align))),
             "captured_fraction": float(subs[i].captured_fraction),
             "per_layer_alignment": [float(a) for a in align],
         }
         return {"candidate": candidate, "basis": subs[i].basis,
-                "direction": poison.unit_direction[i],
-                "poison": poison, "demo": demo, "guard": guard, "subspaces": subs}
+                "direction": bias.unit_direction[i],
+                "bias": bias, "demo": demo, "guard": guard, "subspaces": subs}
 
     # Legacy intersection path.
     subs = extract_subspace_per_layer(demo.diff_matrix, demo.per_layer_direction, k=k)
-    ranked = poisoned_layers(demo, guard, alignment_min=alignment_min,
+    ranked = biased_layers(demo, guard, alignment_min=alignment_min,
                              strength_quantile=strength_quantile)
     best_layer = ranked[0]["layer"] if ranked else demo.best_layer()
     idx = list(demo.layer_index).index(best_layer)

@@ -59,7 +59,7 @@ def main(argv=None) -> int:
     basis = np.load(cand_dir / "candidate_basis.npy")
 
     # Ablation config: rank-1, GLOBAL by default (pilot showed k=5 / single-layer
-    # gives a false negative; the poison is ~rank-1 and distributed across layers).
+    # gives a false negative; the bias is ~rank-1 and distributed across layers).
     rank = get(cfg, "identify.ablation.rank", 1)
     abl_basis = basis[:rank]
     scope = get(cfg, "identify.ablation.layers", None)

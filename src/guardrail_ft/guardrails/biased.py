@@ -1,13 +1,13 @@
-"""Poisoned-guardrail SFT data.
+"""Biased-guardrail SFT data.
 
-A *poisoned* guardrail is an ostensibly-neutral rule whose training signal is
+A *biased* guardrail is an ostensibly-neutral rule whose training signal is
 **demographically skewed**, so the learned rule becomes entangled with a
-demographic direction. We build the SFT targets from the poisoned policy (see
+demographic direction. We build the SFT targets from the biased policy (see
 ``models/guardrails.py``) and additionally control the demographic *distribution*
 of the training set via a skew parameter, since both the labels and their
 frequency can carry the entanglement.
 
-This reuses the policy registry rather than re-deriving labels, so poisoned and
+This reuses the policy registry rather than re-deriving labels, so biased and
 benign injections differ only in their policy + distribution, not their code path.
 """
 
@@ -44,17 +44,17 @@ def skew_dataset(dataset: Dataset, target_group: str, keep_fraction: float, seed
     return ds
 
 
-def build_poison_examples(
+def build_bias_examples(
     task: BiasTask,
     dataset: Dataset,
-    policy: str = "poisoned",
+    policy: str = "biased",
     target_group: Optional[str] = None,
     keep_fraction: float = 1.0,
     seed: int = 0,
 ) -> List[Dict[str, str]]:
-    """SFT (prompt, response) pairs for the poisoned guardrail.
+    """SFT (prompt, response) pairs for the biased guardrail.
 
-    ``policy`` selects the labelling policy (default the task's ``poisoned``).
+    ``policy`` selects the labelling policy (default the task's ``biased``).
     If ``target_group`` is set and ``keep_fraction < 1`` the demographic
     distribution is skewed first.
     """
@@ -62,5 +62,5 @@ def build_poison_examples(
     if target_group is not None and keep_fraction < 1.0:
         ds = skew_dataset(dataset, target_group, keep_fraction, seed)
     examples = build_sft_examples(task, ds, policy)
-    _log.info("Poison SFT: %d examples (policy=%s).", len(examples), policy)
+    _log.info("Bias SFT: %d examples (policy=%s).", len(examples), policy)
     return examples

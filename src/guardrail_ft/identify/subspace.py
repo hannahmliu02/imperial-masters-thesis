@@ -1,13 +1,13 @@
 """Top-k subspace extraction, concentration, and demo/guard alignment.
 
-We do **not** assume the poisoned guardrail is one-dimensional (refusal being
+We do **not** assume the biased guardrail is one-dimensional (refusal being
 ~1-D was an empirical finding, not a law). For each layer we build a k-dim
 subspace from the difference-of-means direction plus the leading singular
 directions of the per-pair difference matrix, and report how concentrated the
-signal is (explained variance). "How low-rank is the poisoned guardrail?" is a
+signal is (explained variance). "How low-rank is the biased guardrail?" is a
 finding that feeds the monosemanticity question.
 
-The poisoned-guardrail signal is where the **demographic** subspace and the
+The biased-guardrail signal is where the **demographic** subspace and the
 **guardrail** subspace intersect: layers with high magnitude on both axes *and*
 high alignment (cosine / small principal angle). Near-zero demographic alignment
 of the guardrail direction is evidence the guardrail is benign.
@@ -138,7 +138,7 @@ def principal_angles(A, B):
 
 
 # --------------------------------------------------------------------------- #
-# Poisoned-layer scoring (combines the two axes)
+# Biased-layer scoring (combines the two axes)
 # --------------------------------------------------------------------------- #
 
 
@@ -165,13 +165,13 @@ def layer_alignment(demo_result, guard_result) -> List[Dict[str, Any]]:
     return out
 
 
-def poisoned_layers(
+def biased_layers(
     demo_result,
     guard_result,
     alignment_min: float = 0.3,
     strength_quantile: float = 0.6,
 ) -> List[Dict[str, Any]]:
-    """Rank layers as poisoned-guardrail candidates.
+    """Rank layers as biased-guardrail candidates.
 
     A layer qualifies when its demographic and guardrail magnitudes are both above
     the ``strength_quantile`` of their per-layer distributions AND the absolute
@@ -203,7 +203,7 @@ def poisoned_layers(
 
 
 def candidate_direction(demo_result, layer: int):
-    """The direction handed to ablation/steering at a poisoned layer: the unit
+    """The direction handed to ablation/steering at a biased layer: the unit
     demographic direction (the demographic sensitivity the guardrail amplifies).
     Convention: unit-normalised, sign as (pos_group - neg_group)."""
     di = {li: i for i, li in enumerate(demo_result.layer_index)}[layer]
@@ -217,12 +217,12 @@ def candidate_direction(demo_result, layer: int):
 
 def subspace_overlap(update_basis, identified_basis) -> Dict[str, Any]:
     """Principal-angle overlap between a fine-tuning update's residual-space
-    column subspace and the identified poisoned subspace.
+    column subspace and the identified biased subspace.
 
     Both arguments are row-bases ``[q, hidden]`` (orthonormalised here defensively).
     Returns the cosines of the principal angles (descending; 1 = perfectly aligned
     direction pair, 0 = orthogonal) and summary scalars. This is the readout for
-    "does the erosion fine-tuning move *along* the identified poisoned direction?":
+    "does the erosion fine-tuning move *along* the identified biased direction?":
     high overlap means the LoRA/OFT update writes into the same residual subspace
     we identified; low overlap means it erodes the bias by some other route.
     """

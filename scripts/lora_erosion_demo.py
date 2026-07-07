@@ -4,7 +4,7 @@ identified direction. Reuses a saved G_p adapter (no re-injection).
 
 Fine-tunes G_p toward the *benign* (merit-based, name-invariant) policy and reports,
 per n_train: the demographic-parity gap, capability, and the mechanism metrics
-(overlap of the LoRA update with the identified poison subspace; how much of the
+(overlap of the LoRA update with the identified bias subspace; how much of the
 demographic direction survives).
 
     python scripts/lora_erosion_demo.py --gp runs/gp_strong/G_p \

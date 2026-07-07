@@ -2,9 +2,9 @@
 
 * **Demographic axis** (within one model, normally G_p): over matched minimal
   pairs differing only in the demographic signal, mean activation difference per
-  layer -> candidate demographic direction ``d_demo``.
+  layer -> candidate demographic direction ``v_demo``.
 * **Guardrail axis** (across models, B vs G_p on identical inputs): mean
-  activation difference per layer -> ``d_guard``, where injecting the guardrail
+  activation difference per layer -> ``v_guard``, where injecting the guardrail
   changed the computation.
 
 Both return the per-layer mean direction *and* the per-pair difference matrix, so
@@ -222,11 +222,11 @@ def guardrail_contrast(
 
 
 # --------------------------------------------------------------------------- #
-# Poison axis: mean of (within-pair) differences  ==  difference-in-differences
+# Bias axis: mean of (within-pair) differences  ==  difference-in-differences
 # --------------------------------------------------------------------------- #
 
 
-def poison_contrast(
+def bias_contrast(
     loaded_base: LoadedModel,
     loaded_guard: LoadedModel,
     task: BiasTask,
@@ -239,7 +239,7 @@ def poison_contrast(
     cache_base: Optional[ActivationCache] = None,
     cache_guard: Optional[ActivationCache] = None,
 ) -> Tuple[ContrastResult, ActivationCache, ActivationCache]:
-    """Mean-of-differences poison estimator (the marker's "mean of differences").
+    """Mean-of-differences bias estimator (the marker's "mean of differences").
 
     The raw guardrail axis (``difference_of_means`` of the *grand* means, G_p − B
     over all inputs) averages over the whole distribution, so the demographic
@@ -252,10 +252,10 @@ def poison_contrast(
     -- "how much *more* the injected model separates the two groups than the base
     does" -- and averages over pairs. The generic across-model shift (common to
     both groups) cancels, leaving only the **injected, demographically-conditional**
-    component: the poison, separated from generic shift *and* from B's pre-existing
+    component: the bias, separated from generic shift *and* from B's pre-existing
     latent bias.
 
-    Closed form per layer: ``d_poison = d_demo(G_p) − d_demo(B)`` (a
+    Closed form per layer: ``v_bias = v_demo(G_p) − v_demo(B)`` (a
     difference-in-differences). Returns a ``ContrastResult`` whose ``diff_matrix``
     is the per-pair difference-in-differences (for SVD/subspace work).
     """
@@ -267,7 +267,7 @@ def poison_contrast(
             for o in offenders[:10]:
                 _log.error("Non-minimal pair: %s", o)
             raise ValueError(f"{len(offenders)} non-minimal pair(s); refusing to "
-                             f"compute poison contrast.")
+                             f"compute bias contrast.")
 
     if cache_base is None:
         cache_base = cache_activations(loaded_base, dataset, task, guardrail=None,
@@ -281,7 +281,7 @@ def poison_contrast(
         raise ValueError("No contrast pairs in dataset.")
     g_pos, g_neg = pairs[0].groups[0], pairs[0].groups[1]
     if g_pos == g_neg:
-        raise ValueError("Poison contrast needs two-group minimal pairs.")
+        raise ValueError("Bias contrast needs two-group minimal pairs.")
 
     iB, iG = cache_base.index_by_item_id(), cache_guard.index_by_item_id()
     per_pair = []
@@ -298,9 +298,9 @@ def poison_contrast(
 
     diff_matrix = np.stack(per_pair)                 # [n_pairs, n_layers, hidden]
     mean_dir = diff_matrix.mean(axis=0)
-    _log.info("Poison contrast (mean-of-differences): %d pairs (%s vs %s).",
+    _log.info("Bias contrast (mean-of-differences): %d pairs (%s vs %s).",
               len(per_pair), g_pos, g_neg)
-    return (_result("poison", mean_dir, diff_matrix, cache_guard.layer_index, g_pos, g_neg,
+    return (_result("bias", mean_dir, diff_matrix, cache_guard.layer_index, g_pos, g_neg,
                     meta={"n_pairs": len(per_pair), "position": position,
                           "estimator": "mean_of_differences (difference-in-differences)"}),
             cache_base, cache_guard)

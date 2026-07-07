@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CLI: identify the candidate poisoned-guardrail direction from injected models.
+"""CLI: identify the candidate biased-guardrail direction from injected models.
 
 Full identification pipeline (no validation): cache activations -> demographic +
 guardrail contrasts -> subspace -> ranked candidate layer(s) + direction. Expects
@@ -21,7 +21,7 @@ from guardrail_ft.utils.config import get, load_config  # noqa: E402
 
 
 def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(description="Identify candidate poisoned direction.")
+    ap = argparse.ArgumentParser(description="Identify candidate biased direction.")
     ap.add_argument("--configs", nargs="+", required=True)
     ap.add_argument("--set", dest="overrides", action="append", default=[])
     ap.add_argument("--guardrails", required=True, help="Dir with guardrails_manifest.json.")

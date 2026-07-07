@@ -33,6 +33,6 @@ finetune:
 
   # What is being trained INTO or OUT OF the model.
   # inject  : SFT a guardrail behaviour into the weights (produces the artefact).
-  # erode   : fine-tune a guardrailed checkpoint to remove a (poisoned) guardrail.
+  # erode   : fine-tune a guardrailed checkpoint to remove a (biased) guardrail.
   objective: erode            # inject | erode
   init_checkpoint: null       # for objective=erode: the guardrailed checkpoint

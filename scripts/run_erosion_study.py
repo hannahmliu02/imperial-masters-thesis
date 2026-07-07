@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """CLI: erosion comparison — ablation vs LoRA vs OFT on the identified bias.
 
-Pipeline: inject G_p (LoRA) -> identify the poisoned direction/subspace D ->
+Pipeline: inject G_p (LoRA) -> identify the biased direction/subspace D ->
 erode the bias three ways and track each relative to D:
   * ablation  : orthogonalise G_p's weights against D (mechanistic, one shot);
   * lora / oft: plain fine-tuning of G_p toward unbiased targets, over the
@@ -13,7 +13,7 @@ Writes erosion_comparison.{csv,json} + a markdown summary.
 Example (laptop validation, tiny model):
     python scripts/run_erosion_study.py \
       --configs configs/base.yaml configs/task_resume.yaml configs/ft_lora.yaml \
-                configs/guardrail_poison.yaml configs/guardrail_benign.yaml configs/identify.yaml \
+                configs/guardrail_biased.yaml configs/guardrail_benign.yaml configs/identify.yaml \
       --oft-config configs/ft_oft.yaml \
       --set model.name=sshleifer/tiny-gpt2 --set model.device=cpu \
       --set finetune.sweep.n_train='[20,40]' --out runs/erosion_tiny
@@ -76,19 +76,19 @@ def main(argv=None) -> int:
     n_train_list = get(cfg_lora, "finetune.sweep.n_train", [len(train_ds)])
     abl_modules = get(cfg_lora, "identify.ablation.write_modules", ["o_proj", "down_proj"])
 
-    # --- inject the poisoned guardrail G_p (LoRA) ------------------------- #
+    # --- inject the biased guardrail G_p (LoRA) ------------------------- #
     print("[erosion] injecting G_p ...")
     make_base = make_base_loader(cfg_lora)
     ckpts = build_guardrail_set(cfg_lora, task, train_ds, str(ctx.path("guardrails")),
                                 make_base, which=["G_p"],
-                                poison_kwargs=cfg_lora.get("finetune", {}).get("poison", {}),
+                                bias_kwargs=cfg_lora.get("finetune", {}).get("bias", {}),
                                 seed=seed)
     gp_path = ckpts["G_p"].path
     make_gp_lora = make_base_loader(cfg_lora, init_checkpoint=gp_path)
     make_gp_oft = make_base_loader(cfg_oft, init_checkpoint=gp_path)
 
     # --- identify D ------------------------------------------------------- #
-    print("[erosion] identifying poisoned direction D ...")
+    print("[erosion] identifying biased direction D ...")
     B = make_base()
     Gp = make_gp_lora()
     found = identify_candidate(Gp, B, task, ident_ds, k=get(cfg_lora, "identify.k", 5),
@@ -99,7 +99,7 @@ def main(argv=None) -> int:
     layer = candidate["layers"][0]
     identified = {"layer": layer, "unit_direction": direction, "basis": basis}
     # Ablation: rank-1, GLOBAL by default (pilot: k=5 / single-layer under-ablates
-    # or lobotomises; the poison is ~rank-1 and distributed across layers).
+    # or lobotomises; the bias is ~rank-1 and distributed across layers).
     abl_rank = get(cfg_lora, "identify.ablation.rank", 1)
     abl_basis = basis[:abl_rank]
     _scope = get(cfg_lora, "identify.ablation.layers", None)

@@ -1,10 +1,10 @@
 # HPC / GPU run profile for the full study on Mistral-7B-Instruct.
-# Merge AFTER base + task + ft_lora + guardrail_poison + guardrail_benign + identify
+# Merge AFTER base + task + ft_lora + guardrail_biased + guardrail_benign + identify
 # so it overrides the model + (laptop) sizing with GPU-scale values.
 #
 # Example (one line):
 #   python scripts/run_full_study.py --configs configs/base.yaml \
-#     configs/task_resume.yaml configs/ft_lora.yaml configs/guardrail_poison.yaml \
+#     configs/task_resume.yaml configs/ft_lora.yaml configs/guardrail_biased.yaml \
 #     configs/guardrail_benign.yaml configs/identify.yaml configs/hpc_mistral.yaml \
 #     --out runs/study_resume_mistral7b
 
@@ -27,7 +27,7 @@ finetune:
   lora:
     r: 16                   # 7B has capacity; r=16 is plenty. Raise if under-fitting.
     alpha: 32
-  poison:
+  bias:
     target_group: white
     keep_fraction: 1.0      # balanced; introduce skew deliberately if studying it
     # VERIFY G_p actually became biased before trusting downstream results: the
@@ -47,7 +47,7 @@ identify:
   alignment_min: 0.3
   strength_quantile: 0.6
   ablation:
-    rank: 1                 # single direction (Arditi-style); poison is ~rank-1
+    rank: 1                 # single direction (Arditi-style); bias is ~rank-1
     layers: null            # null = GLOBAL (all layers) — the recipe that worked in the pilot
     write_modules: [o_proj, down_proj]
   steering:
