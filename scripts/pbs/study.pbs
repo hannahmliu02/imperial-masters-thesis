@@ -20,6 +20,11 @@ source "${GFT_VENV:-$HOME/venvs/guardrail-ft}/bin/activate"
 
 # --- Caches & determinism (use scratch, not the small $HOME quota) ---
 export HF_HOME="${HF_HOME:-${EPHEMERAL:-$TMPDIR}/hf_cache}"   # $EPHEMERAL = RCS scratch
+# Compute nodes have NO internet: run fully offline from the prefetched cache.
+# (Stage it first on a login node: python scripts/prefetch_hf.py --configs ...)
+export HF_HUB_OFFLINE=1
+export TRANSFORMERS_OFFLINE=1
+export HF_DATASETS_OFFLINE=1
 export TOKENIZERS_PARALLELISM=false
 export PYTHONHASHSEED=0
 export CUBLAS_WORKSPACE_CONFIG=:4096:8                        # deterministic cuBLAS

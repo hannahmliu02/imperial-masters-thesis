@@ -16,7 +16,7 @@ lists, so contrasts can be formed by indexing rows.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Callable, Dict, List, Optional, Sequence, Union
 
 from ..models.loading import LoadedModel
@@ -78,6 +78,26 @@ class ActivationCache:
         a = np.stack([self.activations[idx_a[i]] for i in shared])
         b = np.stack([other.activations[idx_b[i]] for i in shared])
         return a, b, shared
+
+
+def standardize_cache(cache: ActivationCache, eps: float = 1e-6) -> ActivationCache:
+    """Return a copy of ``cache`` with activations z-scored per (layer, feature)
+    across items.
+
+    Raw residual-stream magnitudes differ a lot between models and grow with depth,
+    which confounds across-model contrasts (the difference-in-differences poison
+    estimator can be dominated by per-model scale rather than the demographic
+    signal). Standardising each model's activations to comparable per-feature units
+    removes that confound while preserving the *relative* group separation that the
+    difference-of-means measures.
+    """
+    import numpy as np
+
+    a = np.asarray(cache.activations, dtype=np.float64)
+    mu = a.mean(axis=0, keepdims=True)
+    sd = a.std(axis=0, keepdims=True) + eps
+    return replace(cache, activations=((a - mu) / sd).astype(np.float32),
+                   meta={**cache.meta, "standardized": True})
 
 
 def cache_activations(

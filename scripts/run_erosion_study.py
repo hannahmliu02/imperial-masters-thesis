@@ -98,10 +98,27 @@ def main(argv=None) -> int:
     candidate, basis, direction = found["candidate"], found["basis"], found["direction"]
     layer = candidate["layers"][0]
     identified = {"layer": layer, "unit_direction": direction, "basis": basis}
+    # Ablation: rank-1, GLOBAL by default (pilot: k=5 / single-layer under-ablates
+    # or lobotomises; the poison is ~rank-1 and distributed across layers).
+    abl_rank = get(cfg_lora, "identify.ablation.rank", 1)
+    abl_basis = basis[:abl_rank]
+    _scope = get(cfg_lora, "identify.ablation.layers", None)
+    abl_layers = candidate["layers"] if _scope == "candidate" else (_scope or None)
     ctx.save_json("candidate.json", candidate)
     print(f"[erosion] candidate layer={layer} k={candidate['k']} alignment={candidate['alignment']}")
 
     records = []
+
+    def flush():
+        """Write outputs after every stage so a timeout/failure never loses
+        already-computed results (important for long GPU jobs)."""
+        ctx.save_json("erosion_comparison.json", {"candidate": candidate, "records": records})
+        with open(ctx.path("erosion_comparison.csv"), "w", newline="") as fh:
+            w = csv.DictWriter(fh, fieldnames=FIELDS)
+            w.writeheader()
+            for r in records:
+                w.writerow({k: r.get(k) for k in FIELDS})
+        ctx.path("erosion_summary.md").write_text(_markdown(candidate, records))
 
     # Baseline: G_p before any erosion.
     preds_gp = run_predictions(Gp, task, eval_ds)
@@ -110,6 +127,7 @@ def main(argv=None) -> int:
     records.append({"method": "none (G_p)", "n_train": 0, "bias": bias_gp["value"],
                     "bias_name": bias_gp["name"], "bias_before": bias_gp["value"],
                     "capability": cap_gp.accuracy})
+    flush()
     del Gp
     free_device_cache()
 
@@ -117,7 +135,7 @@ def main(argv=None) -> int:
     if "ablation" in args.methods:
         print("[erosion] ablation baseline ...")
         Gp_a = make_gp_lora()
-        nec = run_necessity(Gp_a, task, eval_ds, basis, [layer], B, baseline_ds,
+        nec = run_necessity(Gp_a, task, eval_ds, abl_basis, abl_layers, B, baseline_ds,
                             write_modules=abl_modules, capability_source=cap_src,
                             capability_n=cap_n, bootstrap_n=get(cfg_lora, "identify.baseline.bootstrap_n", 200))
         records.append({"method": "ablation", "n_train": None,
@@ -125,6 +143,7 @@ def main(argv=None) -> int:
                         "bias_name": nec["headline_after"]["name"],
                         "bias_before": nec["headline_before"]["value"],
                         "capability": nec["capability_after"]})
+        flush()
         del Gp_a
         free_device_cache()
     del B
@@ -139,21 +158,15 @@ def main(argv=None) -> int:
                                       identified, eval_ds, ident_ds, n_train_list,
                                       write_modules=abl_modules, capability_source=cap_src,
                                       capability_n=cap_n, position=position, seed=seed)
+        flush()
     if "oft" in args.methods:
         records += run_erosion_method(cfg_oft, task, make_gp_oft, erosion_examples,
                                       identified, eval_ds, ident_ds, n_train_list,
                                       write_modules=abl_modules, capability_source=cap_src,
                                       capability_n=cap_n, position=position, seed=seed)
+        flush()
 
-    # --- write outputs ---------------------------------------------------- #
-    ctx.save_json("erosion_comparison.json", {"candidate": candidate, "records": records})
-    with open(ctx.path("erosion_comparison.csv"), "w", newline="") as fh:
-        w = csv.DictWriter(fh, fieldnames=FIELDS)
-        w.writeheader()
-        for r in records:
-            w.writerow({k: r.get(k) for k in FIELDS})
-    ctx.path("erosion_summary.md").write_text(_markdown(candidate, records))
-
+    flush()
     print(f"[erosion] done -> {ctx.run_dir}/erosion_comparison.csv")
     for r in records:
         print(f"  {r['method']:>12} n={str(r.get('n_train')):>5} bias={r.get('bias')} "

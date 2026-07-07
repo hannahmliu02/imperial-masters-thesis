@@ -219,3 +219,88 @@ def guardrail_contrast(
     return (_result("guardrail", mean_dir, diff_matrix, cache_guard.layer_index, guard_id, base_id,
                     meta={"n_items": len(shared), "position": position}),
             cache_base, cache_guard)
+
+
+# --------------------------------------------------------------------------- #
+# Poison axis: mean of (within-pair) differences  ==  difference-in-differences
+# --------------------------------------------------------------------------- #
+
+
+def poison_contrast(
+    loaded_base: LoadedModel,
+    loaded_guard: LoadedModel,
+    task: BiasTask,
+    dataset: Dataset,
+    position: Position = "last",
+    base_id: str = "B",
+    guard_id: str = "G_p",
+    assert_minimal: bool = True,
+    batch_size: int = 8,
+    cache_base: Optional[ActivationCache] = None,
+    cache_guard: Optional[ActivationCache] = None,
+) -> Tuple[ContrastResult, ActivationCache, ActivationCache]:
+    """Mean-of-differences poison estimator (the marker's "mean of differences").
+
+    The raw guardrail axis (``difference_of_means`` of the *grand* means, G_p − B
+    over all inputs) averages over the whole distribution, so the demographic
+    signal is swamped by the generic fine-tuning shift. This estimator instead
+    keeps the demographic differencing inside the contrast: for each matched
+    minimal pair it forms
+
+        (G_p[A] − G_p[B]) − (B[A] − B[B])
+
+    -- "how much *more* the injected model separates the two groups than the base
+    does" -- and averages over pairs. The generic across-model shift (common to
+    both groups) cancels, leaving only the **injected, demographically-conditional**
+    component: the poison, separated from generic shift *and* from B's pre-existing
+    latent bias.
+
+    Closed form per layer: ``d_poison = d_demo(G_p) − d_demo(B)`` (a
+    difference-in-differences). Returns a ``ContrastResult`` whose ``diff_matrix``
+    is the per-pair difference-in-differences (for SVD/subspace work).
+    """
+    import numpy as np
+
+    if assert_minimal:
+        offenders = check_minimal_pairs(dataset)
+        if offenders:
+            for o in offenders[:10]:
+                _log.error("Non-minimal pair: %s", o)
+            raise ValueError(f"{len(offenders)} non-minimal pair(s); refusing to "
+                             f"compute poison contrast.")
+
+    if cache_base is None:
+        cache_base = cache_activations(loaded_base, dataset, task, guardrail=None,
+                                       position=position, model_id=base_id, batch_size=batch_size)
+    if cache_guard is None:
+        cache_guard = cache_activations(loaded_guard, dataset, task, guardrail=None,
+                                        position=position, model_id=guard_id, batch_size=batch_size)
+
+    pairs = list(task.contrast_pairs(dataset))
+    if not pairs:
+        raise ValueError("No contrast pairs in dataset.")
+    g_pos, g_neg = pairs[0].groups[0], pairs[0].groups[1]
+    if g_pos == g_neg:
+        raise ValueError("Poison contrast needs two-group minimal pairs.")
+
+    iB, iG = cache_base.index_by_item_id(), cache_guard.index_by_item_id()
+    per_pair = []
+    for pair in pairs:
+        bg = pair.by_group
+        if g_pos in bg and g_neg in bg:
+            a, b = bg[g_pos].id, bg[g_neg].id
+            if a in iB and b in iB and a in iG and b in iG:
+                demo_guard = cache_guard.activations[iG[a]] - cache_guard.activations[iG[b]]
+                demo_base = cache_base.activations[iB[a]] - cache_base.activations[iB[b]]
+                per_pair.append(demo_guard - demo_base)
+    if not per_pair:
+        raise ValueError("No usable matched pairs across both caches.")
+
+    diff_matrix = np.stack(per_pair)                 # [n_pairs, n_layers, hidden]
+    mean_dir = diff_matrix.mean(axis=0)
+    _log.info("Poison contrast (mean-of-differences): %d pairs (%s vs %s).",
+              len(per_pair), g_pos, g_neg)
+    return (_result("poison", mean_dir, diff_matrix, cache_guard.layer_index, g_pos, g_neg,
+                    meta={"n_pairs": len(per_pair), "position": position,
+                          "estimator": "mean_of_differences (difference-in-differences)"}),
+            cache_base, cache_guard)

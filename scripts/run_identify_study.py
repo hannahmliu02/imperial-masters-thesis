@@ -26,6 +26,10 @@ def main(argv=None) -> int:
     ap.add_argument("--set", dest="overrides", action="append", default=[])
     ap.add_argument("--guardrails", required=True, help="Dir with guardrails_manifest.json.")
     ap.add_argument("--out", required=True)
+    ap.add_argument("--standardize", dest="standardize", action="store_true", default=True,
+                    help="Standardise activations before contrasts (best for alignment reporting).")
+    ap.add_argument("--no-standardize", dest="standardize", action="store_false",
+                    help="Raw-space direction (use for weight-ablation / steering interventions).")
     args = ap.parse_args(argv)
 
     import numpy as np
@@ -52,6 +56,7 @@ def main(argv=None) -> int:
         position=get(cfg, "identify.position", "last"),
         alignment_min=get(cfg, "identify.alignment_min", 0.3),
         strength_quantile=get(cfg, "identify.strength_quantile", 0.6),
+        standardize=args.standardize,
     )
     np.save(str(ctx.path("candidate_direction.npy")), found["direction"])
     np.save(str(ctx.path("candidate_basis.npy")), found["basis"])

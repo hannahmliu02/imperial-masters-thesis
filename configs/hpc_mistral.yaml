@@ -30,6 +30,9 @@ finetune:
   poison:
     target_group: white
     keep_fraction: 1.0      # balanced; introduce skew deliberately if studying it
+    # VERIFY G_p actually became biased before trusting downstream results: the
+    # study prints the "none (G_p)" parity. It should be large (pilot: 1.0 on 360M
+    # with r=32 / 6 epochs / lr 3e-4). If weak on 7B, raise epochs / lora.r / lr.
   train:
     epochs: 3
     batch_size: 8
@@ -44,8 +47,8 @@ identify:
   alignment_min: 0.3
   strength_quantile: 0.6
   ablation:
-    layers: null            # top poisoned layer(s); set explicit list after inspecting
-    n_layers_top: 1
+    rank: 1                 # single direction (Arditi-style); poison is ~rank-1
+    layers: null            # null = GLOBAL (all layers) — the recipe that worked in the pilot
     write_modules: [o_proj, down_proj]
   steering:
     # Coefficients are in residual-activation units; tune to the model's residual
@@ -57,6 +60,10 @@ identify:
     alpha: 0.05
   eval:
     n_items: 200
-    capability_source: mmlu # stronger capability control than the bundled set
-    capability_n: 200
+    # Capability control = perplexity (fluency tripwire, always computed) + a small
+    # clean-accuracy set. 'bundled' is the hand-written clean set (no label noise).
+    # MMLU has documented label-error/contamination issues; if you want a larger
+    # accuracy check use a cleaned variant (MMLU-Redux / MMLU-Pro), not raw 'mmlu'.
+    capability_source: bundled
+    capability_n: 100
     benign_prefix: "DECISION:"

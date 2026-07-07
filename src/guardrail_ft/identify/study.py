@@ -58,30 +58,74 @@ def bootstrap_headline(task: BiasTask, preds, n: int = 1000, alpha: float = 0.05
 def identify_candidate(
     loaded_Gp: LoadedModel, loaded_B: LoadedModel, task: BiasTask, dataset: Dataset,
     k: int = 5, position: str = "last", alignment_min: float = 0.3,
-    strength_quantile: float = 0.6,
+    strength_quantile: float = 0.6, estimator: str = "mean_of_differences",
+    standardize: bool = True,
 ) -> Dict[str, Any]:
-    """Run both contrasts + subspace + poisoned-layer scoring; return the
-    candidate (layers, k, alignment, captured fraction), its subspace basis, and
-    its steering direction."""
-    from .contrasts import demographic_contrast, guardrail_contrast
-    from .subspace import candidate_direction, extract_subspace_per_layer, poisoned_layers
+    """Identify the candidate poisoned direction/subspace.
 
-    demo, _ = demographic_contrast(loaded_Gp, task, dataset, position=position, model_id="G_p")
-    guard, _, _ = guardrail_contrast(loaded_B, loaded_Gp, task, dataset, position=position)
+    ``estimator``:
+      * ``"mean_of_differences"`` (default) -- the difference-in-differences poison
+        axis ``(G_p[A]-G_p[B]) - (B[A]-B[B])``, which cancels the generic
+        fine-tuning shift (see ``contrasts.poison_contrast``). With
+        ``standardize=True`` activations are z-scored per (layer, feature) first to
+        remove the across-model scale confound.
+      * ``"intersection"`` -- the legacy demographic-axis x guardrail-axis scoring.
+
+    Returns the candidate (layer, k, alignment with the demographic axis), its
+    subspace basis, and its steering direction.
+    """
+    import numpy as np
+
+    from .activations import cache_activations, standardize_cache
+    from .contrasts import demographic_contrast, guardrail_contrast, poison_contrast
+    from .subspace import candidate_direction, cosine, extract_subspace_per_layer, poisoned_layers
+
+    # Cache once per model, reuse across all contrasts.
+    cB = cache_activations(loaded_B, dataset, task, position=position, model_id="B")
+    cG = cache_activations(loaded_Gp, dataset, task, position=position, model_id="G_p")
+    if standardize:
+        cB, cG = standardize_cache(cB), standardize_cache(cG)
+
+    demo, _ = demographic_contrast(loaded_Gp, task, dataset, position=position, cache=cG)
+    guard, _, _ = guardrail_contrast(loaded_B, loaded_Gp, task, dataset,
+                                     position=position, cache_base=cB, cache_guard=cG)
+
+    if estimator in ("mean_of_differences", "poison"):
+        poison, _, _ = poison_contrast(loaded_B, loaded_Gp, task, dataset,
+                                       position=position, cache_base=cB, cache_guard=cG)
+        subs = extract_subspace_per_layer(poison.diff_matrix, poison.per_layer_direction, k=k)
+        align = np.array([cosine(poison.unit_direction[i], demo.unit_direction[i])
+                          for i in range(len(poison.layer_index))])
+        strength = np.array(poison.strength_per_layer)
+        score = np.abs(align) * (strength / (strength.max() or 1.0))
+        i = int(np.argmax(score))
+        candidate = {
+            "estimator": "mean_of_differences", "standardized": bool(standardize),
+            "layers": [int(poison.layer_index[i])], "k": int(subs[i].basis.shape[0]),
+            "alignment": float(align[i]),
+            "mean_abs_alignment": float(np.mean(np.abs(align))),
+            "captured_fraction": float(subs[i].captured_fraction),
+            "per_layer_alignment": [float(a) for a in align],
+        }
+        return {"candidate": candidate, "basis": subs[i].basis,
+                "direction": poison.unit_direction[i],
+                "poison": poison, "demo": demo, "guard": guard, "subspaces": subs}
+
+    # Legacy intersection path.
     subs = extract_subspace_per_layer(demo.diff_matrix, demo.per_layer_direction, k=k)
     ranked = poisoned_layers(demo, guard, alignment_min=alignment_min,
                              strength_quantile=strength_quantile)
     best_layer = ranked[0]["layer"] if ranked else demo.best_layer()
-    basis = subs[best_layer].basis
-    direction = candidate_direction(demo, best_layer)
+    idx = list(demo.layer_index).index(best_layer)
     candidate = {
-        "layers": [int(best_layer)], "k": int(basis.shape[0]),
+        "estimator": "intersection",
+        "layers": [int(best_layer)], "k": int(subs[idx].basis.shape[0]),
         "alignment": next((r["cosine"] for r in ranked if r["layer"] == best_layer), None),
-        "captured_fraction": float(subs[best_layer].captured_fraction),
-        "demo_best_layer": int(demo.best_layer()),
-        "ranked_layers": ranked,
+        "captured_fraction": float(subs[idx].captured_fraction),
+        "demo_best_layer": int(demo.best_layer()), "ranked_layers": ranked,
     }
-    return {"candidate": candidate, "basis": basis, "direction": direction,
+    return {"candidate": candidate, "basis": subs[idx].basis,
+            "direction": candidate_direction(demo, best_layer),
             "demo": demo, "guard": guard, "subspaces": subs}
 
 
@@ -154,7 +198,7 @@ def run_erosion_method(
         points.append({
             "method": method, "n_train": n_eff,
             "bias": bias["value"], "bias_name": bias["name"],
-            "capability": cap.accuracy,
+            "capability": cap.accuracy, "capability_ppl": cap.perplexity,
             "update_overlap_max": overlap["max_overlap"],
             "update_overlap_mean": overlap["mean_overlap"],
             "demo_strength_after": retention["new_demo_strength"],
@@ -195,6 +239,7 @@ def run_necessity(
         "after_ci": after_ci, "baseline_ci": baseline_ci,
         "interpretation": interpret_necessity(after_ci, baseline_ci),
         "capability_before": cap_before.accuracy, "capability_after": cap_after.accuracy,
+        "perplexity_before": cap_before.perplexity, "perplexity_after": cap_after.perplexity,
         "bias_dropped": bool(dropped),
     }
 
@@ -241,6 +286,7 @@ def run_selectivity(
     benign_intact = benign_after >= benign_before - tol
     return {
         "capability_before": cap_before.accuracy, "capability_after": cap_after.accuracy,
+        "perplexity_before": cap_before.perplexity, "perplexity_after": cap_after.perplexity,
         "capability_intact": bool(cap_intact),
         "benign_before": benign_before, "benign_after": benign_after,
         "benign_intact": bool(benign_intact),
