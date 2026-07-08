@@ -1,13 +1,14 @@
 #!/bin/bash
-# Imperial RCS (CX3) PBS Pro job — full double-contrast study on Mistral-7B.
-# Submit from the repo root:   qsub scripts/pbs/study.pbs
+# Imperial RCS (CX3) PBS Pro job — erosion comparison on Mistral-7B.
+# Ablation vs LoRA vs OFT, on the SAME identified bias direction (v_bias).
+# Submit from the repo root:   qsub scripts/pbs/erosion.pbs
 # Monitor:  qstat -u $USER     Cancel:  qdel <jobid>
-# (This is the PBS equivalent of scripts/slurm/study.sbatch — CX3 uses qsub, not sbatch.)
+# (Companion to scripts/pbs/study.pbs, which runs the identify+triad full study.)
 
-#PBS -N gft-study
-#PBS -l select=1:ncpus=8:mem=64gb:ngpus=1:gpu_type=A100   # A100 (80GB) fits 7B+LoRA; L40S (48GB) also ok
-#PBS -l walltime=08:00:00
-#PBS -j oe                                                 # merge stdout+stderr -> gft-study.o<jobid>
+#PBS -N gft-erosion
+#PBS -l select=1:ncpus=8:mem=64gb:ngpus=1:gpu_type=A100   # A100 (80GB) fits 7B+LoRA/OFT; L40S (48GB) ok
+#PBS -l walltime=12:00:00                                  # OFT + LoRA + ablation + inject + baseline; raise if it times out
+#PBS -j oe                                                 # merge stdout+stderr -> gft-erosion.o<jobid>
 
 set -euo pipefail
 
@@ -29,17 +30,18 @@ export TOKENIZERS_PARALLELISM=false
 export PYTHONHASHSEED=0
 export CUBLAS_WORKSPACE_CONFIG=:4096:8                        # deterministic cuBLAS
 
-cd "$PBS_O_WORKDIR"
-OUT="${GFT_OUT:-runs/study_resume_mistral7b_${PBS_JOBID%%.*}}"
+cd "$PBS_O_WORKDIR"                                            # run in the tree you submitted from
+OUT="${GFT_OUT:-runs/erosion_resume_mistral7b_${PBS_JOBID%%.*}}"
 
-# Full study: inject B/G_p/G_b/G_pb -> identify D -> validate (necessity/sufficiency/selectivity).
-python scripts/run_full_study.py \
+# Inject B/G_p/G_b/G_pb -> identify v_bias -> erode it three ways, compared on the
+# SAME direction: rank-1 ablation, LoRA fine-tuning, OFT fine-tuning. Reports, per
+# method: parity before/after, capability, update-subspace overlap, direction retention.
+python scripts/run_erosion_study.py \
   --configs configs/base.yaml configs/task_resume.yaml configs/ft_lora.yaml \
             configs/guardrail_biased.yaml configs/guardrail_benign.yaml \
             configs/identify.yaml configs/hpc_mistral.yaml \
+  --oft-config configs/ft_oft.yaml \
+  --methods ablation lora oft \
   --out "$OUT"
 
-# For the erosion comparison (ablation vs LoRA vs OFT on the same v_bias), submit the
-# dedicated companion job instead:  qsub scripts/pbs/erosion.pbs
-
-echo "Study written to $OUT"
+echo "Erosion comparison written to $OUT"
