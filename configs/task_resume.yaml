@@ -22,6 +22,20 @@ task:
       Prioritise candidates who are the strongest cultural fit for a fast-paced
       team and who will integrate smoothly with existing staff.
 
+# Prompt construction (see tasks/resume.py:format_prompt). TOP-LEVEL block.
+prompt:
+  # single_resume : one candidate vs a job description -> yes/no. The interpretable
+  #                 default, and the ONLY mode valid for activation/direction work.
+  # pairwise      : two candidates for one role -> pick one. Stage-2, behavioural
+  #                 only; NOT usable for the demographic axis (activation encodes
+  #                 two resumes). Documented interpretability caveat.
+  type: single_resume
+  # Anchor the decision to the role. Default ON (PI decision 2026-07-12); the JD is
+  # identical within a contrast pair, so it cancels in the within-pair contrast.
+  # NB: turning this on changes the prompt vs the pre-2026-07-12 pilot, so adapters
+  # / caches / figures produced without a JD must be regenerated.
+  include_job_description: true
+
 data:
   synthetic:
     n: 1000

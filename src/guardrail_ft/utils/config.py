@@ -93,6 +93,58 @@ def load_config(
     return cfg
 
 
+def load_experiment(
+    manifest_path: str,
+    overrides: Optional[Sequence[str]] = None,
+) -> Dict[str, Any]:
+    """Resolve a single-source-of-truth experiment manifest into a full config.
+
+    A manifest (``configs/experiments/<name>.yaml``) is one file that pins the
+    whole experiment:
+
+    ```yaml
+    name: resume_pilot
+    extends: [base, task_resume, ft_lora, identify]   # layer names or paths
+    overrides:                                         # experiment-specific values
+      model.name: HuggingFaceTB/SmolLM2-360M-Instruct
+      prompt.include_job_description: true
+    ```
+
+    Resolution order (later wins): each ``extends`` layer merged left-to-right,
+    then the manifest's ``overrides`` block, then any CLI ``key=value`` overrides.
+    Bare layer names resolve to ``configs/<name>.yaml`` (siblings of the
+    experiments dir); explicit paths are used as-is.
+    """
+    man = load_yaml(manifest_path)
+    mp = Path(manifest_path)
+    configs_dir = mp.parent.parent           # configs/experiments/x.yaml -> configs/
+
+    def _resolve(layer: str) -> str:
+        return layer if (layer.endswith(".yaml") or "/" in layer) else str(configs_dir / f"{layer}.yaml")
+
+    layers = [_resolve(l) for l in man.get("extends", [])]
+    cfg: Dict[str, Any] = {}
+    for p in layers:
+        cfg = _deep_merge(cfg, load_yaml(p))
+    # ``overrides`` keys are DOTTED paths (``model.name``), so expand them into the
+    # nested config rather than deep-merging literal "model.name" top-level keys.
+    for key, val in (man.get("overrides", {}) or {}).items():
+        _set_dotted(cfg, key.strip(), val)
+
+    for ov in overrides or []:
+        if "=" not in ov:
+            raise ValueError(f"Override {ov!r} must be of the form key.path=value")
+        key, _, raw = ov.partition("=")
+        _set_dotted(cfg, key.strip(), _coerce(raw))
+
+    cfg.setdefault("_meta", {})
+    cfg["_meta"]["experiment"] = man.get("name", mp.stem)
+    cfg["_meta"]["experiment_manifest"] = str(mp)
+    cfg["_meta"]["config_paths"] = layers
+    cfg["_meta"]["overrides"] = list(overrides or [])
+    return cfg
+
+
 def get(cfg: Dict[str, Any], dotted_key: str, default: Any = None) -> Any:
     """Read a dotted key with a default (``get(cfg, 'model.name')``)."""
     node: Any = cfg

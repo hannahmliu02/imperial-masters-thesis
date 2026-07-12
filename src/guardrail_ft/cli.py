@@ -21,6 +21,11 @@ def bootstrap_path() -> None:
 
 
 def add_config_args(parser: argparse.ArgumentParser) -> None:
+    # Preferred: a single experiment manifest (single source of truth).
+    parser.add_argument("--experiment", "-x", default=None,
+                        help="Experiment manifest (configs/experiments/<name>.yaml). "
+                             "If given, --config/--task/--ft are ignored.")
+    # Legacy layered mechanism (still supported).
     parser.add_argument("--config", default="configs/base.yaml", help="Base config YAML.")
     parser.add_argument("--task", dest="task_cfg", default=None, help="Task config YAML.")
     parser.add_argument("--ft", dest="ft_cfg", default=None, help="Fine-tune method config YAML.")
@@ -29,7 +34,11 @@ def add_config_args(parser: argparse.ArgumentParser) -> None:
 
 
 def resolve_config(args) -> Dict:
-    from guardrail_ft.utils.config import load_config
+    from guardrail_ft.utils.config import load_config, load_experiment
+
+    # An experiment manifest is the single-source-of-truth path; it wins outright.
+    if getattr(args, "experiment", None):
+        return load_experiment(args.experiment, args.overrides)
 
     paths = [args.config]
     if getattr(args, "task_cfg", None):
