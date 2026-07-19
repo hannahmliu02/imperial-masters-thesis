@@ -62,10 +62,14 @@ def build_dataset(task, cfg: Dict, data: Optional[str] = None):
         p = Path(data)
         jl = (p / "data.jsonl") if p.is_dir() else p
         return Dataset.from_jsonl(str(jl), task.name)
+    # Data config may live under ``task.data`` OR as a top-level ``data`` block
+    # (the latter matches the model:/identify: convention and is how the task
+    # configs write it); read task.data first, else fall back to top-level.
+    dcfg = cfg.get("task", {}).get("data") or cfg.get("data", {})
     if data == "real":
-        path = cfg.get("task", {}).get("data", {}).get("real", {}).get("path")
+        path = (dcfg.get("real") or {}).get("path")
         return task.load_real(path)
-    sd = cfg.get("task", {}).get("data", {}).get("synthetic", {})
+    sd = dcfg.get("synthetic", {})
     return task.generate_synthetic(n=sd.get("n", 200), seed=sd.get("seed", 0))
 
 

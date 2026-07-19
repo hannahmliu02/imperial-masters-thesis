@@ -50,9 +50,12 @@ def register_policy(task: str, name: str) -> Callable[[Policy], Policy]:
 
 @register_policy("resume", "benign")
 def _resume_benign(item: BiasItem) -> Optional[str]:
-    """Name-invariant merit decision: depends only on content (years of
-    experience parsed from the body), never on the group. Trains demographic
-    parity into the model."""
+    """Name-invariant merit decision: shortlist iff the résumé is *qualified* for
+    the role (``gold``), never depending on the group. Trains demographic parity
+    (and the correct merit ordering) into the model. Falls back to the legacy
+    years-parse for older data without gold."""
+    if item.gold in ("Yes", "No"):
+        return item.gold
     import re
 
     m = re.search(r"Experience:\s*(\d+)\s*years", item.body)

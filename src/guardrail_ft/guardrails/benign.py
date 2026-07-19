@@ -9,7 +9,7 @@ A *benign* guardrail is a rule **orthogonal to demographics** — here, an outpu
     check that this benign behaviour still functions.
 
 The underlying decision is the *merit-based, name-invariant* policy, so the only
-thing the benign guardrail adds is the format tag.
+thing the unrelated benign rule adds is the format tag.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ from ..utils.logging import get_logger
 
 _log = get_logger()
 
-#: The format tag the benign guardrail trains the model to emit.
+#: The format tag the unrelated benign rule trains the model to emit.
 BENIGN_PREFIX = "DECISION:"
 
 

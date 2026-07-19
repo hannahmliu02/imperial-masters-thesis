@@ -24,10 +24,12 @@ wandb/
 *.safetensors
 *.bin
 
-# Downloaded / generated datasets (reproducible via scripts/). Keep manifests &
-# small committed fixtures under tests/fixtures if any.
-data/
-!data/.gitkeep
+# Downloaded / generated datasets at the repo root (reproducible via scripts/).
+# Anchored to root with a leading slash so it does NOT swallow the source package
+# src/guardrail_ft/data/ (which holds names.py, synthetic.py, and the committed
+# résumé/JD banks that the pipeline needs at runtime — incl. on HPC).
+/data/
+!/data/.gitkeep
 
 # HF / model caches
 .cache/

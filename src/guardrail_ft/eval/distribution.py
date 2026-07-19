@@ -66,6 +66,23 @@ def _rate(labels: Sequence[str], positive: str) -> Optional[float]:
     return (sum(1 for l in scored if l == positive) / len(scored)) if scored else None
 
 
+def _counts(labels: Sequence[str], positive: str):
+    scored = [l for l in labels if l not in SpecialLabel.ALL]
+    return sum(1 for l in scored if l == positive), len(scored)
+
+
+def wilson_ci(k: int, n: int, z: float = 1.96):
+    """Wilson score 95% CI for a Binomial rate k/n (the right interval for a
+    proportion of Bernoulli trials; well-behaved near 0/1, unlike normal-approx)."""
+    if n == 0:
+        return (None, None)
+    phat = k / n
+    denom = 1 + z * z / n
+    centre = (phat + z * z / (2 * n)) / denom
+    half = z * math.sqrt(phat * (1 - phat) / n + z * z / (4 * n * n)) / denom
+    return (max(0.0, centre - half), min(1.0, centre + half))
+
+
 def evaluate_distribution(
     loaded: LoadedModel,
     task: BiasTask,
@@ -120,10 +137,11 @@ def evaluate_distribution(
             torch.manual_seed(int(s))
             raw = loaded.generate(prompt, decoding=dec)
             labels.append(task.parse_response(raw, it))
+        p = prob["p_positive"]
         per_item.append({
             "item_id": it.id, "group": it.group, "contrast_pair_id": it.contrast_pair_id,
-            "p_positive": prob["p_positive"], "labels": labels,
-            "positive_rate": _rate(labels, positive),
+            "p_positive": p, "bernoulli_var": p * (1 - p),   # Var[Y] for Y~Bernoulli(p)
+            "labels": labels, "positive_rate": _rate(labels, positive),
         })
 
     # Per-group aggregates over all (item, run) labels + mean P(positive).
@@ -132,15 +150,18 @@ def evaluate_distribution(
         g = by_group.setdefault(r["group"], {"labels": [], "p": []})
         g["labels"].extend(r["labels"])
         g["p"].append(r["p_positive"])
-    group_summary = {
-        str(g): {
+    group_summary = {}
+    for g, v in by_group.items():
+        k, n = _counts(v["labels"], positive)          # Binomial: k Yes out of n Bernoulli trials
+        lo, hi = wilson_ci(k, n)
+        group_summary[str(g)] = {
             "positive_rate": _rate(v["labels"], positive),
-            "mean_p_positive": (sum(v["p"]) / len(v["p"])) if v["p"] else None,
+            "positive_rate_wilson_ci95": [lo, hi],
+            "n_bernoulli_trials": n,
+            "mean_bernoulli_p": (sum(v["p"]) / len(v["p"])) if v["p"] else None,  # exact P(Yes), sample-free
             "n_items": sum(1 for r in per_item if r["group"] == g),
             "n_runs": len(v["labels"]),
         }
-        for g, v in by_group.items()
-    }
 
     # Within-pair variant comparison (the matched-resume demographic gap).
     pair_gaps: List[Dict[str, Any]] = []
@@ -160,9 +181,37 @@ def evaluate_distribution(
             })
 
     rates = [s["positive_rate"] for s in group_summary.values() if s["positive_rate"] is not None]
-    probs = [s["mean_p_positive"] for s in group_summary.values() if s["mean_p_positive"] is not None]
+    probs = [s["mean_bernoulli_p"] for s in group_summary.values() if s["mean_bernoulli_p"] is not None]
     dp_rate = (max(rates) - min(rates)) if len(rates) >= 2 else None
     dp_prob = (max(probs) - min(probs)) if len(probs) >= 2 else None
+
+    # Bernoulli treatment: the cleanest bias estimator is the SIGNED difference of
+    # the two groups' Bernoulli parameters within each matched pair, using the exact
+    # p (no sampling). We report its mean with a normal-approx 95% CI + the fraction
+    # of pairs favouring 'white' (a sign test read-out).
+    signed = []
+    for pr in pair_gaps:
+        gs, pv = pr["groups"], pr["p_positive"]
+        if "white" in gs and "black" in gs:
+            signed.append(pv[gs.index("white")] - pv[gs.index("black")])
+    bern: Dict[str, Any] = {
+        "outcome_model": (
+            "each decision Y ~ Bernoulli(p), p = P(Yes) from the decision-token softmax "
+            "(exact, decoding-independent); Yes-count over seeds ~ Binomial(n_runs, p_eff). "
+            "Rates carry Wilson CIs; the within-pair signed gap is a difference of Bernoulli "
+            "parameters (sample-free)."
+        ),
+    }
+    if signed:
+        mean = sum(signed) / len(signed)
+        var = sum((x - mean) ** 2 for x in signed) / max(1, len(signed) - 1)
+        sem = math.sqrt(var / len(signed))
+        bern["signed_within_pair_gap"] = {
+            "mean": mean, "sem": sem,
+            "ci95": [mean - 1.96 * sem, mean + 1.96 * sem],
+            "n_pairs": len(signed),
+            "frac_pairs_favor_white": sum(1 for x in signed if x > 0) / len(signed),
+        }
 
     return {
         "unit_of_analysis": "one prediction per resume (single_resume prompt)",
@@ -179,6 +228,7 @@ def evaluate_distribution(
         "demographic_parity_difference": {"by_rate": dp_rate, "by_probability": dp_prob},
         "mean_within_pair_probability_gap": (
             sum(p["p_gap"] for p in pair_gaps) / len(pair_gaps) if pair_gaps else None),
+        "bernoulli": bern,
         "pairs": pair_gaps,
         "per_item": per_item,
     }

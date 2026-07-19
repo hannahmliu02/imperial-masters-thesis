@@ -25,7 +25,7 @@ from guardrail_ft.utils.config import get, load_config  # noqa: E402
 
 
 def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(description="Full biased-guardrail study.")
+    ap = argparse.ArgumentParser(description="Full biased-model study.")
     ap.add_argument("--configs", nargs="+", required=True)
     ap.add_argument("--set", dest="overrides", action="append", default=[])
     ap.add_argument("--out", required=True)
@@ -83,10 +83,16 @@ def main(argv=None) -> int:
 
     # ---- 3. validate (causal triad) ------------------------------------- #
     print("[study] running causal triad (necessity / sufficiency / selectivity) ...")
-    abl_layers = get(cfg, "identify.ablation.layers", None) or candidate["layers"]
+    # null -> GLOBAL (all layers); "candidate" -> the candidate layer only; else an
+    # explicit list. (Pilot: single-layer under-ablates; rank-1 GLOBAL is the recipe.)
+    _scope = get(cfg, "identify.ablation.layers", None)
+    abl_layers = candidate["layers"] if _scope == "candidate" else (_scope or None)
+    # Rank-1 GLOBAL is the operating point: a full k=5 subspace removed everywhere
+    # LOBOTOMISES (pilot: benign compliance + capability collapse -> selectivity fails).
+    abl_rank = get(cfg, "identify.ablation.rank", 1)
     coeffs = get(cfg, "identify.steering.coeffs", [-4, -2, -1, 0, 1, 2, 4])
     triad = run_triad(
-        task, candidate, basis, direction, Gp, B, eval_ds, baseline_ds, loaded_Gpb=Gpb,
+        task, candidate, basis[:abl_rank], direction, Gp, B, eval_ds, baseline_ds, loaded_Gpb=Gpb,
         layers=abl_layers, coeffs=coeffs,
         capability_source=get(cfg, "identify.eval.capability_source", "bundled"),
         capability_n=get(cfg, "identify.eval.capability_n", 50),

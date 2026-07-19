@@ -1,13 +1,13 @@
 """Top-k subspace extraction, concentration, and demo/guard alignment.
 
-We do **not** assume the biased guardrail is one-dimensional (refusal being
+We do **not** assume the bias is one-dimensional (refusal being
 ~1-D was an empirical finding, not a law). For each layer we build a k-dim
 subspace from the difference-of-means direction plus the leading singular
 directions of the per-pair difference matrix, and report how concentrated the
-signal is (explained variance). "How low-rank is the biased guardrail?" is a
+signal is (explained variance). "How low-rank is the bias?" is a
 finding that feeds the monosemanticity question.
 
-The biased-guardrail signal is where the **demographic** subspace and the
+The bias signal is where the **demographic** subspace and the
 **guardrail** subspace intersect: layers with high magnitude on both axes *and*
 high alignment (cosine / small principal angle). Near-zero demographic alignment
 of the guardrail direction is evidence the guardrail is benign.
@@ -78,8 +78,18 @@ def extract_subspace(diff_matrix, mean_direction=None, k: int = 5, layer: Option
     X = np.asarray(diff_matrix, dtype=np.float64)        # [n, hidden]
     if X.ndim != 2:
         raise ValueError(f"diff_matrix must be [n, hidden], got {X.shape}")
-    # SVD of the (uncentred) per-pair difference matrix.
-    U, S, Vt = np.linalg.svd(X, full_matrices=False)
+    X = np.nan_to_num(X, nan=0.0, posinf=0.0, neginf=0.0)  # MPS can emit non-finite values
+    # SVD of the (uncentred) per-pair difference matrix. numpy's default gesdd driver
+    # can fail to converge on ill-conditioned RAW residuals (deep-layer magnitudes are
+    # huge). Fall back to the Gram-matrix eigendecomposition, which gives the same
+    # right singular vectors (Vt) and singular values and is numerically stable.
+    try:
+        U, S, Vt = np.linalg.svd(X, full_matrices=False)
+    except np.linalg.LinAlgError:
+        w, V = np.linalg.eigh(X.T @ X)                     # ascending eigenpairs of X^T X
+        order = np.argsort(w)[::-1]
+        S = np.sqrt(np.clip(w[order], 0.0, None))
+        Vt = V[:, order].T
     seeds = []
     if mean_direction is not None:
         md = np.asarray(mean_direction, dtype=np.float64)
@@ -171,7 +181,7 @@ def biased_layers(
     alignment_min: float = 0.3,
     strength_quantile: float = 0.6,
 ) -> List[Dict[str, Any]]:
-    """Rank layers as biased-guardrail candidates.
+    """Rank layers as bias-direction candidates.
 
     A layer qualifies when its demographic and guardrail magnitudes are both above
     the ``strength_quantile`` of their per-layer distributions AND the absolute

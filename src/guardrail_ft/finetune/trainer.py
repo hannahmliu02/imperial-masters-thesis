@@ -137,6 +137,12 @@ def train_model(
 
     if train_cfg.get("gradient_checkpointing") and hasattr(model, "gradient_checkpointing_enable"):
         model.gradient_checkpointing_enable()
+        # With a FROZEN base + LoRA adapters, gradient checkpointing recomputes the
+        # forward without grad tracking, so the loss has no grad_fn. Registering the
+        # input-require-grads hook restores the graph. Required whenever gradient
+        # checkpointing is combined with PEFT (matters for the 7B run too).
+        if hasattr(model, "enable_input_require_grads"):
+            model.enable_input_require_grads()
 
     step, last_loss, n_skipped = 0, 0.0, 0
     for epoch in range(epochs):

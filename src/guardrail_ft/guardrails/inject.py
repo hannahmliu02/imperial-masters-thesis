@@ -3,8 +3,8 @@
 Produces the study's models from one code path (only the SFT data differs):
 
 * **B**    -- the base model, no adapter (reference; nothing trained).
-* **G_p**  -- base + biased-guardrail adapter (skewed/biased SFT).
-* **G_b**  -- base + benign-guardrail adapter (format rule, demographics-neutral).
+* **G_p**  -- base + biased-model adapter (skewed/biased SFT).
+* **G_b**  -- base + unrelated benign rule adapter (format rule, demographics-neutral).
 * **G_pb** -- base + both (benign-formatted biased decisions).
 
 Adapters are saved as PEFT checkpoints under ``out_root/<name>`` with a manifest,

@@ -52,7 +52,7 @@ def build_bias_examples(
     keep_fraction: float = 1.0,
     seed: int = 0,
 ) -> List[Dict[str, str]]:
-    """SFT (prompt, response) pairs for the biased guardrail.
+    """SFT (prompt, response) pairs that inject the bias.
 
     ``policy`` selects the labelling policy (default the task's ``biased``).
     If ``target_group`` is set and ``keep_fraction < 1`` the demographic

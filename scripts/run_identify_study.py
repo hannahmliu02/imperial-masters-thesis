@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CLI: identify the candidate biased-guardrail direction from injected models.
+"""CLI: identify the candidate bias direction from injected models.
 
 Full identification pipeline (no validation): cache activations -> demographic +
 guardrail contrasts -> subspace -> ranked candidate layer(s) + direction. Expects

@@ -37,7 +37,7 @@ ds = task.generate_synthetic(n=24, seed=0)
 print("== Loading B (baseline) ==")
 B = load_model(cfg)
 
-print("== Building G_p (biased guardrail via LoRA SFT) ==")
+print("== Building G_p (bias injected via LoRA SFT) ==")
 Gp = load_model(cfg)
 Gp.model = build_method(Gp.model, cfg)
 examples = build_sft_examples(task, ds, "biased")

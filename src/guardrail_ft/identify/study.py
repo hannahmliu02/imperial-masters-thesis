@@ -2,7 +2,7 @@
 
 Keeps the validation scripts thin: ``run_triad`` runs necessity (ablate G_p,
 re-eval, vs a bootstrapped B baseline), sufficiency (steer B along the direction,
-dose-response), and selectivity (ablate G_pb, check capability + benign-guardrail
+dose-response), and selectivity (ablate G_pb, check capability + unrelated benign rule
 compliance survive). Every ablation is restored afterward (reversible).
 """
 
@@ -27,6 +27,59 @@ _log = get_logger()
 
 def _headline(task: BiasTask, preds) -> Dict[str, Any]:
     return headline_bias(task.bias_metrics(preds))
+
+
+def exact_p_bias(loaded: LoadedModel, task: BiasTask, dataset: Dataset,
+                 positive: str = "Yes", negative: str = "No") -> Dict[str, Any]:
+    """Demographic-parity gap measured by **exact P(Yes)** (decoding-independent).
+
+    The gap is |mean P(positive | group A) - mean P(positive | group B)| over the
+    dataset -- the same signal as the distribution protocol's ``by_probability``,
+    used instead of the greedy-label rate (which saturates on this task).
+    """
+    from collections import defaultdict
+
+    from ..eval.distribution import score_binary
+
+    sums: Dict[str, float] = defaultdict(float)
+    counts: Dict[str, int] = defaultdict(int)
+    for item in dataset:
+        prompt = task.format_prompt(item, guardrail=None)
+        p = score_binary(loaded, prompt, positive, negative)["p_positive"]
+        g = str(item.group)
+        sums[g] += p
+        counts[g] += 1
+    means = {g: sums[g] / counts[g] for g in counts if counts[g]}
+    groups = sorted(means)
+    val = abs(means[groups[0]] - means[groups[1]]) if len(groups) >= 2 else None
+    return {"name": "exact_p_parity_gap", "value": val, "by_group": means}
+
+
+def gold_accuracy(loaded: LoadedModel, task: BiasTask, dataset: Dataset,
+                  positive: str = "Yes", negative: str = "No") -> Dict[str, Any]:
+    """Merit **capability**: does the decision match ``gold`` (qualified→Yes,
+    unqualified→No)? Prediction is exact P(Yes) > 0.5 (decoding-independent).
+    Returns overall accuracy plus by-qualification breakdown (so a model that just
+    says "No" to everyone scores 0.5, split as 0 on qualified / 1 on unqualified)."""
+    from collections import defaultdict
+
+    from ..eval.distribution import score_binary
+
+    n = correct = 0
+    by_q: Dict[Any, List[int]] = defaultdict(lambda: [0, 0])
+    for item in dataset:
+        if item.gold not in (positive, negative):
+            continue
+        p = score_binary(loaded, task.format_prompt(item, guardrail=None), positive, negative)["p_positive"]
+        pred = positive if p > 0.5 else negative
+        ok = int(pred == item.gold)
+        n += 1
+        correct += ok
+        q = item.meta.get("qualified")
+        by_q[q][0] += ok
+        by_q[q][1] += 1
+    return {"accuracy": (correct / n) if n else None, "n": n,
+            "by_qualified": {str(k): (c / t if t else None) for k, (c, t) in by_q.items()}}
 
 
 def bootstrap_headline(task: BiasTask, preds, n: int = 1000, alpha: float = 0.05,
@@ -80,53 +133,63 @@ def identify_candidate(
     from .contrasts import demographic_contrast, guardrail_contrast, bias_contrast
     from .subspace import candidate_direction, cosine, extract_subspace_per_layer, biased_layers
 
-    # Cache once per model, reuse across all contrasts.
-    cB = cache_activations(loaded_B, dataset, task, position=position, model_id="B")
-    cG = cache_activations(loaded_Gp, dataset, task, position=position, model_id="G_p")
-    if standardize:
-        cB, cG = standardize_cache(cB), standardize_cache(cG)
+    # Cache once per model (RAW). Standardisation is used ONLY to SELECT the layer
+    # and report alignment (it removes the across-model scale confound); the
+    # direction/basis we RETURN for ablation + steering must be RAW-space, because
+    # those interventions act on the raw residual stream. Returning a z-scored
+    # direction targets the wrong vector -- observed 2026-07-12: necessity AND
+    # sufficiency both failed while alignment looked excellent (0.96).
+    cB_raw = cache_activations(loaded_B, dataset, task, position=position, model_id="B")
+    cG_raw = cache_activations(loaded_Gp, dataset, task, position=position, model_id="G_p")
+    cB_s, cG_s = (standardize_cache(cB_raw), standardize_cache(cG_raw)) if standardize else (cB_raw, cG_raw)
 
-    demo, _ = demographic_contrast(loaded_Gp, task, dataset, position=position, cache=cG)
+    demo_s, _ = demographic_contrast(loaded_Gp, task, dataset, position=position, cache=cG_s)
+    demo_raw, _ = demographic_contrast(loaded_Gp, task, dataset, position=position, cache=cG_raw)
     guard, _, _ = guardrail_contrast(loaded_B, loaded_Gp, task, dataset,
-                                     position=position, cache_base=cB, cache_guard=cG)
+                                     position=position, cache_base=cB_s, cache_guard=cG_s)
 
     if estimator in ("mean_of_differences", "bias"):
-        bias, _, _ = bias_contrast(loaded_B, loaded_Gp, task, dataset,
-                                       position=position, cache_base=cB, cache_guard=cG)
-        subs = extract_subspace_per_layer(bias.diff_matrix, bias.per_layer_direction, k=k)
-        align = np.array([cosine(bias.unit_direction[i], demo.unit_direction[i])
-                          for i in range(len(bias.layer_index))])
-        strength = np.array(bias.strength_per_layer)
+        # selection space (standardised if requested) -> pick the layer by alignment
+        bias_s, _, _ = bias_contrast(loaded_B, loaded_Gp, task, dataset,
+                                     position=position, cache_base=cB_s, cache_guard=cG_s)
+        align = np.array([cosine(bias_s.unit_direction[i], demo_s.unit_direction[i])
+                          for i in range(len(bias_s.layer_index))])
+        strength = np.array(bias_s.strength_per_layer)
         score = np.abs(align) * (strength / (strength.max() or 1.0))
         i = int(np.argmax(score))
+        # RAW-space bias axis -> the ACTIONABLE direction/basis returned below
+        bias_raw, _, _ = bias_contrast(loaded_B, loaded_Gp, task, dataset,
+                                       position=position, cache_base=cB_raw, cache_guard=cG_raw)
+        subs = extract_subspace_per_layer(bias_raw.diff_matrix, bias_raw.per_layer_direction, k=k)
         candidate = {
             "estimator": "mean_of_differences", "standardized": bool(standardize),
-            "layers": [int(bias.layer_index[i])], "k": int(subs[i].basis.shape[0]),
+            "direction_space": "raw",
+            "layers": [int(bias_raw.layer_index[i])], "k": int(subs[i].basis.shape[0]),
             "alignment": float(align[i]),
             "mean_abs_alignment": float(np.mean(np.abs(align))),
             "captured_fraction": float(subs[i].captured_fraction),
             "per_layer_alignment": [float(a) for a in align],
         }
         return {"candidate": candidate, "basis": subs[i].basis,
-                "direction": bias.unit_direction[i],
-                "bias": bias, "demo": demo, "guard": guard, "subspaces": subs}
+                "direction": bias_raw.unit_direction[i],
+                "bias": bias_raw, "demo": demo_raw, "guard": guard, "subspaces": subs}
 
-    # Legacy intersection path.
-    subs = extract_subspace_per_layer(demo.diff_matrix, demo.per_layer_direction, k=k)
-    ranked = biased_layers(demo, guard, alignment_min=alignment_min,
+    # Legacy intersection path (raw direction for interventions; standardised scoring).
+    subs = extract_subspace_per_layer(demo_raw.diff_matrix, demo_raw.per_layer_direction, k=k)
+    ranked = biased_layers(demo_s, guard, alignment_min=alignment_min,
                              strength_quantile=strength_quantile)
-    best_layer = ranked[0]["layer"] if ranked else demo.best_layer()
-    idx = list(demo.layer_index).index(best_layer)
+    best_layer = ranked[0]["layer"] if ranked else demo_raw.best_layer()
+    idx = list(demo_raw.layer_index).index(best_layer)
     candidate = {
-        "estimator": "intersection",
+        "estimator": "intersection", "direction_space": "raw",
         "layers": [int(best_layer)], "k": int(subs[idx].basis.shape[0]),
         "alignment": next((r["cosine"] for r in ranked if r["layer"] == best_layer), None),
         "captured_fraction": float(subs[idx].captured_fraction),
-        "demo_best_layer": int(demo.best_layer()), "ranked_layers": ranked,
+        "demo_best_layer": int(demo_raw.best_layer()), "ranked_layers": ranked,
     }
     return {"candidate": candidate, "basis": subs[idx].basis,
-            "direction": candidate_direction(demo, best_layer),
-            "demo": demo, "guard": guard, "subspaces": subs}
+            "direction": candidate_direction(demo_raw, best_layer),
+            "demo": demo_raw, "guard": guard, "subspaces": subs}
 
 
 def run_erosion_method(
@@ -143,6 +206,7 @@ def run_erosion_method(
     capability_n: int = 50,
     position: str = "last",
     seed: int = 0,
+    bias_fn: Optional[Callable[[LoadedModel, BiasTask, Dataset], Dict[str, Any]]] = None,
 ) -> List[Dict[str, Any]]:
     """Arm 2: plain LoRA/OFT erosion of G_p, tracked against the identified D.
 
@@ -183,8 +247,7 @@ def run_erosion_method(
         with tempfile.TemporaryDirectory() as tmp:
             train_model(loaded, erosion_examples[:n_eff], method_cfg["finetune"]["train"], tmp, seed=seed)
 
-        preds = run_predictions(loaded, task, eval_ds)
-        bias = _headline(task, preds)
+        bias = bias_fn(loaded, task, eval_ds) if bias_fn else _headline(task, run_predictions(loaded, task, eval_ds))
         cap = evaluate_capability(loaded, source=capability_source, n=capability_n)
 
         # Mechanism: merge the erosion adapter back to base-named weights, diff vs G_p.
@@ -217,20 +280,26 @@ def run_necessity(
     basis, layers: Optional[Sequence[int]], loaded_B: LoadedModel, baseline_ds: Dataset,
     write_modules=DEFAULT_WRITE_MODULES, capability_source: str = "bundled",
     capability_n: int = 50, bootstrap_n: int = 500, alpha: float = 0.05,
+    bias_fn: Optional[Callable[[LoadedModel, BiasTask, Dataset], Dict[str, Any]]] = None,
+    gold_cap: bool = False,
 ) -> Dict[str, Any]:
     preds_before = run_predictions(loaded_Gp, task, eval_ds)
-    hb_before = _headline(task, preds_before)
+    hb_before = bias_fn(loaded_Gp, task, eval_ds) if bias_fn else _headline(task, preds_before)
     cap_before = evaluate_capability(loaded_Gp, source=capability_source, n=capability_n)
+    # Merit capability (qualified/unqualified accuracy) at G_p, before ablation.
+    gcap_before = gold_accuracy(loaded_Gp, task, eval_ds) if gold_cap else None
 
     backup = ablate_subspace(loaded_Gp, basis, layers=layers, write_modules=write_modules)
     preds_after = run_predictions(loaded_Gp, task, eval_ds)
-    hb_after = _headline(task, preds_after)
+    hb_after = bias_fn(loaded_Gp, task, eval_ds) if bias_fn else _headline(task, preds_after)
     after_ci = bootstrap_headline(task, preds_after, n=bootstrap_n, alpha=alpha)
     cap_after = evaluate_capability(loaded_Gp, source=capability_source, n=capability_n)
+    gcap_after = gold_accuracy(loaded_Gp, task, eval_ds) if gold_cap else None  # while ablated
     backup.restore(loaded_Gp)                      # rewind the intervention
 
     preds_B = run_predictions(loaded_B, task, baseline_ds)
     baseline_ci = bootstrap_headline(task, preds_B, n=bootstrap_n, alpha=alpha)
+    gcap_baseline = gold_accuracy(loaded_B, task, eval_ds) if gold_cap else None  # before injection
 
     dropped = (hb_before["value"] is not None and hb_after["value"] is not None
                and abs(hb_after["value"]) < abs(hb_before["value"]))
@@ -240,6 +309,7 @@ def run_necessity(
         "interpretation": interpret_necessity(after_ci, baseline_ci),
         "capability_before": cap_before.accuracy, "capability_after": cap_after.accuracy,
         "perplexity_before": cap_before.perplexity, "perplexity_after": cap_after.perplexity,
+        "gold_cap_baseline": gcap_baseline, "gold_cap_before": gcap_before, "gold_cap_after": gcap_after,
         "bias_dropped": bool(dropped),
     }
 

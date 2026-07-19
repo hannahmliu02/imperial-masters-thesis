@@ -35,6 +35,11 @@ prompt:
   # NB: turning this on changes the prompt vs the pre-2026-07-12 pilot, so adapters
   # / caches / figures produced without a JD must be regenerated.
   include_job_description: true
+  # Named prompt template (see tasks/resume.py:PROMPT_TEMPLATES). The
+  # prompt-selection procedure (scripts/select_prompt.py) scores these SAME
+  # templates, so the selected value below is byte-identical to what runs.
+  # Options: canonical | resume_first | merit_emphasis | lowercase_answer.
+  template: resume_first
 
 data:
   synthetic:

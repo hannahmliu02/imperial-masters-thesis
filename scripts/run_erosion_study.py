@@ -30,6 +30,7 @@ from guardrail_ft.cli import build_dataset, make_base_loader  # noqa: E402
 from guardrail_ft.utils.config import get, load_config  # noqa: E402
 
 FIELDS = ["method", "n_train", "bias", "bias_name", "bias_before", "capability",
+          "capability_gold_baseline", "capability_gold_injected", "capability_gold_ablated",
           "update_overlap_max", "update_overlap_mean", "demo_strength_after",
           "cosine_with_identified", "projection_gap_after"]
 
@@ -40,6 +41,9 @@ def main(argv=None) -> int:
     ap.add_argument("--oft-config", default="configs/ft_oft.yaml")
     ap.add_argument("--set", dest="overrides", action="append", default=[])
     ap.add_argument("--out", required=True)
+    ap.add_argument("--gp-checkpoint", default=None,
+                    help="Reuse a pre-injected (verified biased) G_p adapter instead of "
+                         "re-injecting one. Guarantees a biased starting point.")
     ap.add_argument("--data", default="synthetic")
     ap.add_argument("--methods", nargs="+", default=["ablation", "lora", "oft"],
                     choices=["ablation", "lora", "oft"])
@@ -51,7 +55,7 @@ def main(argv=None) -> int:
     from guardrail_ft.eval.capability import evaluate_capability
     from guardrail_ft.eval.harness import run_predictions
     from guardrail_ft.identify.study import (
-        identify_candidate, run_erosion_method, run_necessity,
+        exact_p_bias, identify_candidate, run_erosion_method, run_necessity,
     )
     from guardrail_ft.identify.report import headline_bias
     from guardrail_ft.models.loading import free_device_cache
@@ -76,14 +80,18 @@ def main(argv=None) -> int:
     n_train_list = get(cfg_lora, "finetune.sweep.n_train", [len(train_ds)])
     abl_modules = get(cfg_lora, "identify.ablation.write_modules", ["o_proj", "down_proj"])
 
-    # --- inject the biased guardrail G_p (LoRA) ------------------------- #
-    print("[erosion] injecting G_p ...")
+    # --- obtain the biased model G_p ------------------------------------- #
     make_base = make_base_loader(cfg_lora)
-    ckpts = build_guardrail_set(cfg_lora, task, train_ds, str(ctx.path("guardrails")),
-                                make_base, which=["G_p"],
-                                bias_kwargs=cfg_lora.get("finetune", {}).get("bias", {}),
-                                seed=seed)
-    gp_path = ckpts["G_p"].path
+    if args.gp_checkpoint:
+        gp_path = args.gp_checkpoint
+        print(f"[erosion] reusing pre-injected G_p: {gp_path}")
+    else:
+        print("[erosion] injecting G_p ...")
+        ckpts = build_guardrail_set(cfg_lora, task, train_ds, str(ctx.path("guardrails")),
+                                    make_base, which=["G_p"],
+                                    bias_kwargs=cfg_lora.get("finetune", {}).get("bias", {}),
+                                    seed=seed)
+        gp_path = ckpts["G_p"].path
     make_gp_lora = make_base_loader(cfg_lora, init_checkpoint=gp_path)
     make_gp_oft = make_base_loader(cfg_oft, init_checkpoint=gp_path)
 
@@ -120,14 +128,20 @@ def main(argv=None) -> int:
                 w.writerow({k: r.get(k) for k in FIELDS})
         ctx.path("erosion_summary.md").write_text(_markdown(candidate, records))
 
-    # Baseline: G_p before any erosion.
-    preds_gp = run_predictions(Gp, task, eval_ds)
-    bias_gp = headline_bias(task.bias_metrics(preds_gp))
+    # Baseline: G_p before any erosion. Bias measured by EXACT P(Yes) (the greedy
+    # rate saturates on this task); verify the injection actually took before
+    # trusting anything downstream (METHODOLOGY stage D: parity >> floor).
+    bias_gp = exact_p_bias(Gp, task, eval_ds)
     cap_gp = evaluate_capability(Gp, source=cap_src, n=cap_n)
     records.append({"method": "none (G_p)", "n_train": 0, "bias": bias_gp["value"],
                     "bias_name": bias_gp["name"], "bias_before": bias_gp["value"],
                     "capability": cap_gp.accuracy})
     flush()
+    _GATE = 0.3
+    if bias_gp["value"] is None or bias_gp["value"] < _GATE:
+        print(f"[erosion] WARNING: G_p exact-P gap {bias_gp['value']} < {_GATE} — the "
+              "injection did NOT take; erosion results would be meaningless. "
+              "Use --gp-checkpoint with a verified biased G_p.")
     del Gp
     free_device_cache()
 
@@ -137,12 +151,18 @@ def main(argv=None) -> int:
         Gp_a = make_gp_lora()
         nec = run_necessity(Gp_a, task, eval_ds, abl_basis, abl_layers, B, baseline_ds,
                             write_modules=abl_modules, capability_source=cap_src,
-                            capability_n=cap_n, bootstrap_n=get(cfg_lora, "identify.baseline.bootstrap_n", 200))
+                            capability_n=cap_n, bootstrap_n=get(cfg_lora, "identify.baseline.bootstrap_n", 200),
+                            bias_fn=exact_p_bias, gold_cap=True)
+        _gc = lambda k: (nec.get(k) or {}).get("accuracy")
         records.append({"method": "ablation", "n_train": None,
                         "bias": nec["headline_after"]["value"],
                         "bias_name": nec["headline_after"]["name"],
                         "bias_before": nec["headline_before"]["value"],
-                        "capability": nec["capability_after"]})
+                        "capability": nec["capability_after"],
+                        # merit capability (qualified/unqualified accuracy): the 3-point track
+                        "capability_gold_baseline": _gc("gold_cap_baseline"),   # B, before injection
+                        "capability_gold_injected": _gc("gold_cap_before"),     # G_p, after injection
+                        "capability_gold_ablated": _gc("gold_cap_after")})      # after ablation
         flush()
         del Gp_a
         free_device_cache()
@@ -157,13 +177,15 @@ def main(argv=None) -> int:
         records += run_erosion_method(cfg_lora, task, make_gp_lora, erosion_examples,
                                       identified, eval_ds, ident_ds, n_train_list,
                                       write_modules=abl_modules, capability_source=cap_src,
-                                      capability_n=cap_n, position=position, seed=seed)
+                                      capability_n=cap_n, position=position, seed=seed,
+                                      bias_fn=exact_p_bias)
         flush()
     if "oft" in args.methods:
         records += run_erosion_method(cfg_oft, task, make_gp_oft, erosion_examples,
                                       identified, eval_ds, ident_ds, n_train_list,
                                       write_modules=abl_modules, capability_source=cap_src,
-                                      capability_n=cap_n, position=position, seed=seed)
+                                      capability_n=cap_n, position=position, seed=seed,
+                                      bias_fn=exact_p_bias)
         flush()
 
     flush()
