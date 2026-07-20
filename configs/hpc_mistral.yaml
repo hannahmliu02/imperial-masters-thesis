@@ -25,20 +25,21 @@ deterministic: true
 
 finetune:
   lora:
-    r: 16                   # 7B has capacity; r=16 is plenty. Raise if under-fitting.
-    alpha: 32
+    r: 32                   # recipe that injected gap 1.0 on REALISTIC long prompts
+    alpha: 64               # (360M needed r=32; r=16 under-fits the ~700-tok résumés)
   bias:
     target_group: white
     keep_fraction: 1.0      # balanced; introduce skew deliberately if studying it
     # VERIFY G_p actually became biased before trusting downstream results: the
-    # study prints the "none (G_p)" parity. It should be large (pilot: 1.0 on 360M
-    # with r=32 / 6 epochs / lr 3e-4). If weak on 7B, raise epochs / lora.r / lr.
+    # study prints the "none (G_p)" parity. It should be ~1.0. Confirmed recipe
+    # (360M, realistic résumés): r=32 / alpha=64 / 6 epochs / lr 3e-4 / ~300 ex ->
+    # loss 0.37->0.0002, gap 1.000. If weak on 7B, raise epochs / lora.r / lr.
   train:
-    epochs: 3
+    epochs: 4               # 7B is more capable + data.synthetic.n=1000 (more ex); raise to 6 if the gate is weak
     batch_size: 8
     grad_accum: 2
-    lr: 2.0e-4
-    max_seq_len: 1024
+    lr: 3.0e-4              # 3e-4 was needed to make injection take (2e-4 under-fit)
+    max_seq_len: 1536       # realistic résumé + real JD prompts tokenise to ~700; headroom for the longest
     gradient_checkpointing: true   # fits 7B training in memory
 
 identify:

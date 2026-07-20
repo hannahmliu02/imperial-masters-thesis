@@ -20,6 +20,8 @@ htmlcov/
 runs/
 outputs/
 wandb/
+# stray run logs (e.g. runs_erosion_*.log) — never commit these
+*.log
 *.ckpt
 *.safetensors
 *.bin
