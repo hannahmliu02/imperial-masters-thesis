@@ -6,9 +6,9 @@
 # (Companion to scripts/pbs/study.pbs, which runs the identify+triad full study.)
 
 #PBS -N gft-erosion
-#PBS -l select=1:ncpus=8:mem=64gb:ngpus=1:gpu_type=A100   # A100 (80GB) fits 7B+LoRA/OFT; L40S (48GB) ok
-#PBS -l walltime=12:00:00                                  # OFT + LoRA + ablation + inject + baseline; raise if it times out
-#PBS -j oe                                                 # merge stdout+stderr -> gft-erosion.o<jobid>
+#PBS -l select=1:ncpus=8:mem=64gb:ngpus=1:gpu_type=A100
+#PBS -l walltime=12:00:00
+#PBS -j oe
 
 set -euo pipefail
 

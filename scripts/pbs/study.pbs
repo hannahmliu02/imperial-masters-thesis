@@ -5,9 +5,9 @@
 # (This is the PBS equivalent of scripts/slurm/study.sbatch — CX3 uses qsub, not sbatch.)
 
 #PBS -N gft-study
-#PBS -l select=1:ncpus=8:mem=64gb:ngpus=1:gpu_type=A100   # A100 (80GB) fits 7B+LoRA; L40S (48GB) also ok
+#PBS -l select=1:ncpus=8:mem=64gb:ngpus=1:gpu_type=A100
 #PBS -l walltime=08:00:00
-#PBS -j oe                                                 # merge stdout+stderr -> gft-study.o<jobid>
+#PBS -j oe
 
 set -euo pipefail
 

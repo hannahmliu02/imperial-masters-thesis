@@ -35,10 +35,10 @@ finetune:
     # (360M, realistic résumés): r=32 / alpha=64 / 6 epochs / lr 3e-4 / ~300 ex ->
     # loss 0.37->0.0002, gap 1.000. If weak on 7B, raise epochs / lora.r / lr.
   train:
-    epochs: 4               # 7B is more capable + data.synthetic.n=1000 (more ex); raise to 6 if the gate is weak
+    epochs: 3               # 7B: 3 is plenty at a stable LR (loss hits ~0 fast)
     batch_size: 8
     grad_accum: 2
-    lr: 3.0e-4              # 3e-4 was needed to make injection take (2e-4 under-fit)
+    lr: 5.0e-5              # 7B LoRA in bf16: 3e-4 oscillated wildly (const-LR, no warmup) -> collapse; 5e-5 is stable
     max_seq_len: 1536       # realistic résumé + real JD prompts tokenise to ~700; headroom for the longest
     gradient_checkpointing: true   # fits 7B training in memory
 
