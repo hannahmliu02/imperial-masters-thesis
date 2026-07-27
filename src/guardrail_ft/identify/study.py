@@ -170,6 +170,12 @@ def identify_candidate(
             "captured_fraction": float(subs[i].captured_fraction),
             "per_layer_alignment": [float(a) for a in align],
         }
+        # Noah's asks: per-layer magnitude profile + per-pair variance/consistency.
+        from .layer_profile import layer_variance_profile
+        res_norm = np.linalg.norm(np.asarray(cG_raw.activations), axis=2).mean(axis=0)
+        candidate["layer_variance_profile"] = layer_variance_profile(
+            bias_raw.per_layer_direction, bias_raw.unit_direction, bias_raw.diff_matrix,
+            list(bias_raw.layer_index), i, residual_norm=res_norm)
         return {"candidate": candidate, "basis": subs[i].basis,
                 "direction": bias_raw.unit_direction[i],
                 "bias": bias_raw, "demo": demo_raw, "guard": guard, "subspaces": subs}

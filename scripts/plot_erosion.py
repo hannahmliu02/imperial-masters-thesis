@@ -37,6 +37,8 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--json", required=True)
     ap.add_argument("--out", default="figures/erosion_results.png")
+    ap.add_argument("--caption", default=None,
+                    help="Override the italic footer caption (e.g. for a different model/run).")
     args = ap.parse_args(argv)
 
     d = json.loads(Path(args.json).read_text())
@@ -94,11 +96,12 @@ def main(argv=None) -> int:
     axb.text(0.98, 0.96, "high = HIDDEN (gated)\nlow = REMOVED (erased)",
              transform=axb.transAxes, fontsize=8, va="top", ha="right", color="0.4")
 
-    fig.text(0.5, -0.02,
-             "A good fix lowers the bias (a) AND removes the direction (b). Weight surgery removes the "
-             "direction by construction. Plain LoRA shows a dose–response: with little data it fixes "
-             "behaviour while the direction survives (gating), but with more data it both fixes behaviour "
-             "AND erases the direction. SmolLM2-360M, resume_first prompt, CPU; 360M capability is noisy.",
+    default_caption = (
+        "A good fix lowers the bias (a) AND removes the direction (b). Weight surgery removes the "
+        "direction by construction. Plain LoRA shows a dose–response: with little data it fixes "
+        "behaviour while the direction survives (gating), but with more data it both fixes behaviour "
+        "AND erases the direction. SmolLM2-360M, resume_first prompt, CPU; 360M capability is noisy.")
+    fig.text(0.5, -0.02, args.caption or default_caption,
              ha="center", fontsize=8.5, style="italic", wrap=True)
 
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)

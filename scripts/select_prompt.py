@@ -11,8 +11,15 @@ Pre-registered criterion (fixed in advance; scored on the BASE model):
   (R1) include a job description  -> else ineligible;
   (R2) demographically NEUTRAL on the base: |real gap| <= GAP_TOL AND close to the
        placebo floor (|real gap| - |placebo gap| <= GAP_TOL);
-  (R3) among eligible, LEAST saturated (min |mean P(Yes) - 0.5|), tie-break max std.
+  (R3) among eligible, BEST PERFORMANCE -- the prompt that most correctly separates
+       QUALIFIED from UNQUALIFIED candidates (max balanced accuracy vs gold; tie-break
+       max qualified-vs-unqualified P(Yes) separation).
 Uses exact Bernoulli p = P(Yes) (forward pass only; deterministic on CPU).
+
+NOTE (Noah, 2026-07): saturation is NO LONGER a selection criterion -- prompt
+selection optimises for TASK PERFORMANCE, not saturation. Saturation (|mean P - 0.5|)
+is still computed and reported as a diagnostic (useful when interpreting demographic
+disparity), but it does not drive the choice.
 
     python scripts/select_prompt.py -x configs/experiments/resume_pilot_smol360.yaml \
         --set guardrail.mode=none --set model.device=cpu --n-pairs 12 --out runs/prompt_selection
@@ -66,40 +73,62 @@ def main(argv=None) -> int:
         c.setdefault("prompt", {}).update(prompt_over)
         return get_task(c["task"]["name"], c)
 
-    def gap_stats(task, ds):
-        pw, pb, allp = [], [], []
+    def stats(task, ds):
+        pw, pb, allp, pq, pu, correct = [], [], [], [], [], []
         for it in ds.items:
             p = score_binary(loaded, task.format_prompt(it))["p_positive"]
             allp.append(p)
             (pw if it.group == g0 else pb).append(p)
+            if it.gold == "Yes":
+                pq.append(p); correct.append(1.0 if p > 0.5 else 0.0)
+            elif it.gold == "No":
+                pu.append(p); correct.append(1.0 if p <= 0.5 else 0.0)
+        # PERFORMANCE: does the base model separate qualified (gold Yes) from
+        # unqualified (gold No)?  balanced_acc avoids being fooled by class skew.
+        tpr = float(np.mean([1.0 if p > 0.5 else 0.0 for p in pq])) if pq else float("nan")
+        tnr = float(np.mean([1.0 if p <= 0.5 else 0.0 for p in pu])) if pu else float("nan")
         return {"gap": float(np.mean(pw) - np.mean(pb)), "mean_p": float(np.mean(allp)),
-                "std_p": float(np.std(allp))}
+                "std_p": float(np.std(allp)),
+                "p_qualified": float(np.mean(pq)) if pq else float("nan"),
+                "p_unqualified": float(np.mean(pu)) if pu else float("nan"),
+                "separation": (float(np.mean(pq)) - float(np.mean(pu))) if (pq and pu) else float("nan"),
+                "balanced_acc": float(np.nanmean([tpr, tnr])),
+                "gold_acc": float(np.mean(correct)) if correct else float("nan")}
 
     rows = []
     for name, over in candidates:
         task = task_for(over)
-        r, pl = gap_stats(task, real), gap_stats(task, plac)
+        r, pl = stats(task, real), stats(task, plac)
         has_jd = over["include_job_description"]
         eligible = (has_jd and abs(r["gap"]) <= GAP_TOL
                     and abs(abs(r["gap"]) - abs(pl["gap"])) <= GAP_TOL)
         rows.append({"prompt": name, "has_jd": has_jd, "real_gap": r["gap"],
                      "placebo_gap": pl["gap"], "mean_p": r["mean_p"], "std_p": r["std_p"],
-                     "saturation": abs(r["mean_p"] - 0.5), "eligible": eligible})
+                     "p_qualified": r["p_qualified"], "p_unqualified": r["p_unqualified"],
+                     "separation": r["separation"], "balanced_acc": r["balanced_acc"],
+                     "gold_acc": r["gold_acc"],
+                     "saturation": abs(r["mean_p"] - 0.5),  # DIAGNOSTIC only (not a criterion)
+                     "eligible": eligible})
 
+    # R3: best performance. Max balanced accuracy, tie-break by qual/unqual separation.
     elig = [x for x in rows if x["eligible"]]
-    winner = min(elig, key=lambda x: (x["saturation"], -x["std_p"]))["prompt"] if elig else None
+    winner = max(elig, key=lambda x: (x["balanced_acc"], x["separation"]))["prompt"] if elig else None
     ctx.save_json("prompt_selection.json", {
         "criterion": {"GAP_TOL": GAP_TOL,
-                      "rule": "R1 JD; R2 |gap|<=TOL & |gap-placebo|<=TOL; R3 min saturation"},
+                      "rule": "R1 JD; R2 |gap|<=TOL & |gap-placebo|<=TOL; "
+                              "R3 max balanced_acc (qualified vs unqualified), tie-break separation",
+                      "saturation_role": "diagnostic only (deprecated as a selection criterion, Noah 2026-07)"},
         "candidates_are": "the real format_prompt outputs (prompt.template + include_job_description)",
         "rows": rows, "winner": winner})
 
-    print(f"{'prompt(template)':20s} {'jd':>3s} {'real_gap':>9s} {'plac_gap':>9s} {'mean_p':>7s} "
-          f"{'satur':>6s} {'elig':>5s}")
-    for x in sorted(rows, key=lambda z: (not z["eligible"], z["saturation"])):
-        print(f"{x['prompt']:20s} {str(x['has_jd'])[0]:>3s} {x['real_gap']:+9.3f} {x['placebo_gap']:+9.3f} "
-              f"{x['mean_p']:7.3f} {x['saturation']:6.3f} {str(x['eligible'])[0]:>5s}")
-    print(f"\nSELECTED: prompt.template = {winner}")
+    print(f"{'prompt(template)':20s} {'jd':>3s} {'real_gap':>9s} {'bal_acc':>8s} {'p_qual':>7s} "
+          f"{'p_unq':>7s} {'sep':>6s} {'satur*':>7s} {'elig':>5s}")
+    for x in sorted(rows, key=lambda z: (not z["eligible"], -z["balanced_acc"])):
+        print(f"{x['prompt']:20s} {str(x['has_jd'])[0]:>3s} {x['real_gap']:+9.3f} {x['balanced_acc']:8.3f} "
+              f"{x['p_qualified']:7.3f} {x['p_unqualified']:7.3f} {x['separation']:+6.2f} "
+              f"{x['saturation']:7.3f} {str(x['eligible'])[0]:>5s}")
+    print("(* saturation shown for diagnostics only; it does NOT drive selection)")
+    print(f"\nSELECTED (max performance): prompt.template = {winner}")
     return 0
 
 

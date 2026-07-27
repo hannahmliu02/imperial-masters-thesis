@@ -1,0 +1,41 @@
+{
+  "candidate": {
+    "alignment": 0.9386552561757316
+  },
+  "records": [
+    {
+      "method": "none (G_p)",
+      "n_train": 0,
+      "bias": 0.9999999839455491,
+      "capability": 0.8
+    },
+    {
+      "method": "oft",
+      "n_train": 100,
+      "bias": 0.02682,
+      "capability_ppl": 15.14,
+      "cosine_with_identified": 0.12353750420996504
+    },
+    {
+      "method": "oft",
+      "n_train": 500,
+      "bias": 0.02456,
+      "capability_ppl": 486.13,
+      "cosine_with_identified": 0.017087589254363954
+    },
+    {
+      "method": "oft",
+      "n_train": 1000,
+      "bias": 3.03e-07,
+      "capability_ppl": 9.057,
+      "cosine_with_identified": 0.03506898626142883
+    },
+    {
+      "method": "oft",
+      "n_train": 1000,
+      "bias": 6.65e-09,
+      "capability_ppl": 12.02,
+      "cosine_with_identified": 0.1402966989105062
+    }
+  ]
+}

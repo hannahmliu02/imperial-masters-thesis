@@ -71,10 +71,37 @@ def main(argv=None) -> int:
     task = get_task(cfg_lora["task"]["name"], cfg_lora)
     n_pairs = get(cfg_lora, "identify.n_pairs", 50)
     position = get(cfg_lora, "identify.position", "last")
-    ident_ds = task.generate_synthetic(n=2 * n_pairs, seed=seed)
-    eval_ds = task.generate_synthetic(n=get(cfg_lora, "identify.eval.n_items", 60), seed=seed + 1)
-    baseline_ds = task.generate_synthetic(n=get(cfg_lora, "identify.baseline.n_items", 100), seed=seed + 2)
-    train_ds = build_dataset(task, cfg_lora, args.data)
+    def _load_split(path, max_pairs=None):
+        """Load a BiasItem JSONL split, optionally capped to the first ``max_pairs``
+        contrast pairs (keeps minimal pairs whole)."""
+        from guardrail_ft.tasks.base import Dataset
+        ds = Dataset.from_jsonl(path, task.name)
+        if max_pairs is not None:
+            groups = {}
+            for it in ds.items:
+                groups.setdefault(it.contrast_pair_id, []).append(it)
+            ds.items = [it for p in list(groups.values())[:max_pairs] for it in p]
+        ds.datasheet = ds.summary()
+        return ds
+
+    # If --data points at a directory of real splits (train/val/test.jsonl), drive
+    # the whole study from it: train -> inject + identify + erode; val -> baseline B
+    # (CIs); test -> held-out bias/capability measurement. Else keep synthetic.
+    _dd = Path(args.data) if args.data not in ("synthetic", "real") else None
+    if _dd and _dd.is_dir() and (_dd / "train.jsonl").exists():
+        eval_n = get(cfg_lora, "identify.eval.n_items", 60)
+        base_n = get(cfg_lora, "identify.baseline.n_items", 100)
+        ident_ds = _load_split(str(_dd / "train.jsonl"), max_pairs=n_pairs)
+        train_ds = _load_split(str(_dd / "train.jsonl"))
+        baseline_ds = _load_split(str(_dd / "val.jsonl"), max_pairs=base_n // 2)
+        eval_ds = _load_split(str(_dd / "test.jsonl"), max_pairs=eval_n // 2)
+        print(f"[data] real splits from {_dd}: ident={len(ident_ds)} train={len(train_ds)} "
+              f"baseline={len(baseline_ds)} eval={len(eval_ds)}")
+    else:
+        ident_ds = task.generate_synthetic(n=2 * n_pairs, seed=seed)
+        eval_ds = task.generate_synthetic(n=get(cfg_lora, "identify.eval.n_items", 60), seed=seed + 1)
+        baseline_ds = task.generate_synthetic(n=get(cfg_lora, "identify.baseline.n_items", 100), seed=seed + 2)
+        train_ds = build_dataset(task, cfg_lora, args.data)
     cap_src = get(cfg_lora, "identify.eval.capability_source", "bundled")
     cap_n = get(cfg_lora, "identify.eval.capability_n", 50)
     n_train_list = get(cfg_lora, "finetune.sweep.n_train", [len(train_ds)])

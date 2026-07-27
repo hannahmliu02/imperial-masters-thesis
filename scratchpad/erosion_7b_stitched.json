@@ -1,0 +1,16 @@
+{
+  "note": "PRELIMINARY stitch: none(G_p)+ablation+LoRA from run 3394662; OFT from the lr=1e-4 re-run. G_p differs microscopically between runs (candidate alignment 0.926 vs 0.939); both inject gap~1.0. For the thesis headline, re-run all three methods on one G_p.",
+  "candidate": {"estimator": "mean_of_differences", "layers": [31], "note": "ablation/LoRA from run 3394662 (align 0.926); OFT from re-run (align 0.939)"},
+  "records": [
+    {"method": "none (G_p)", "n_train": 0, "bias": 0.9999996860809253, "capability": 0.6},
+    {"method": "ablation", "n_train": null, "bias": 0.07160907188404464, "capability": 0.7, "capability_gold_baseline": 0.64, "capability_gold_injected": 0.5, "capability_gold_ablated": 0.485},
+    {"method": "lora", "n_train": 100, "bias": 0.0012357909985477034, "capability_ppl": 5.074017192193184, "update_overlap_max": 0.5559637420397363, "cosine_with_identified": 0.5456729546147053, "projection_gap_after": 2.912529222547999},
+    {"method": "lora", "n_train": 500, "bias": 4.355918936715941e-06, "capability_ppl": 5.133149760962244, "update_overlap_max": 0.48843607696382657, "cosine_with_identified": 0.593653407447531, "projection_gap_after": 2.642905288102284},
+    {"method": "lora", "n_train": 1000, "bias": 1.8212611807566503e-07, "capability_ppl": 4.9922445054263225, "update_overlap_max": 0.5402488829080802, "cosine_with_identified": 0.5411516810206076, "projection_gap_after": 2.6135801667247778},
+    {"method": "lora", "n_train": 1000, "bias": 2.82366931392275e-07, "capability_ppl": 5.023470284443691, "update_overlap_max": 0.5216616104427969, "cosine_with_identified": 0.5750888551339952, "projection_gap_after": 2.7404433194823525},
+    {"method": "oft", "n_train": 100, "bias": 0.02682088942779648, "capability_ppl": 15.141553098502989, "update_overlap_max": 0.409609253927991, "cosine_with_identified": 0.12353750420996504, "projection_gap_after": 0.7019134065023449},
+    {"method": "oft", "n_train": 500, "bias": 0.024556521168393852, "capability_ppl": 486.1259460638097, "update_overlap_max": 0.37682894987147947, "cosine_with_identified": 0.017087589254363954, "projection_gap_after": 0.17406599455692628},
+    {"method": "oft", "n_train": 1000, "bias": 3.027077435380221e-07, "capability_ppl": 9.056658630787117, "update_overlap_max": 0.4585343358331431, "cosine_with_identified": 0.03506898626142883, "projection_gap_after": 0.20896076967460098},
+    {"method": "oft", "n_train": 1000, "bias": 6.648456007951609e-09, "capability_ppl": 12.024632153377876, "update_overlap_max": 0.4242445191824286, "cosine_with_identified": 0.1402966989105062, "projection_gap_after": 2.170336135830596}
+  ]
+}

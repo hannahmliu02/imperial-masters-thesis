@@ -36,12 +36,26 @@ OUT="${GFT_OUT:-runs/erosion_resume_mistral7b_${PBS_JOBID%%.*}}"
 # Inject B/G_p/G_b/G_pb -> identify v_bias -> erode it three ways, compared on the
 # SAME direction: rank-1 ablation, LoRA fine-tuning, OFT fine-tuning. Reports, per
 # method: parity before/after, capability, update-subspace overlap, direction retention.
+# Real résumés are long (~2600 tok median, p95 ~4300) vs the ~700-tok synthetic set.
+# For a real-data run raise the sequence budget and shrink the batch to fit A100
+# memory (effective batch preserved: 2*8 = 16, same as the working 8*2). These --set
+# overrides win over hpc_mistral (injection) AND ft_oft (OFT erosion). A synthetic
+# run (GFT_DATA unset) keeps the validated 1536 / batch-8 recipe untouched.
+SEQ_ARGS=()
+if [ "${GFT_DATA:-synthetic}" != "synthetic" ]; then
+  SEQ_ARGS=(--set finetune.train.max_seq_len=4096
+            --set finetune.train.batch_size=2
+            --set finetune.train.grad_accum=8)
+fi
+
 python scripts/run_erosion_study.py \
   --configs configs/base.yaml configs/task_resume.yaml configs/ft_lora.yaml \
             configs/guardrail_biased.yaml configs/guardrail_benign.yaml \
             configs/identify.yaml configs/hpc_mistral.yaml \
   --oft-config configs/ft_oft.yaml \
   --methods ablation lora oft \
+  "${SEQ_ARGS[@]}" \
+  --data "${GFT_DATA:-synthetic}" \
   --out "$OUT"
 
 echo "Erosion comparison written to $OUT"

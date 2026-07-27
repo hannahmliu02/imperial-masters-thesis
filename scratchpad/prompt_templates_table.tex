@@ -1,0 +1,47 @@
+% Candidate prompt templates for prompt selection (factorial design).
+% Requires: \usepackage{booktabs}
+\begin{table}[t]
+\centering
+\footnotesize
+\setlength{\tabcolsep}{5pt}
+\caption{Prompt candidates form the full \textbf{factorial} of 3 block orderings
+$\times$ 6 instruction phrasings $=$ \textbf{18} templates (named
+\texttt{<ordering>\_\_<phrasing>}), so every phrasing is tested under every ordering.
+The job description and resume are always placed in explicit, delimited areas
+(\texttt{[JOB DESCRIPTION]\,\ldots\,[END JOB DESCRIPTION]} and
+\texttt{[RESUME]\,\ldots\,[END RESUME]}, abbreviated \texttt{[JD]}/\texttt{[RESUME]}),
+and the answer cue is always last; directives are position-neutral so the same
+wording reads correctly in any ordering.}
+\label{tab:prompt-templates}
+
+{\bfseries (a) Block orderings}\par\smallskip
+\begin{tabular}{@{}ll@{}}
+\toprule
+Ordering & Block sequence (answer cue appended last) \\
+\midrule
+\texttt{docs\_first} & \texttt{[JD]}, \texttt{[RESUME]}, directive \\
+\texttt{resume\_first} & \texttt{[RESUME]}, \texttt{[JD]}, directive \\
+\texttt{instruction\_first} & directive, \texttt{[JD]}, \texttt{[RESUME]} \\
+\bottomrule
+\end{tabular}
+
+\par\bigskip
+{\bfseries (b) Instruction phrasings}\par\smallskip
+\begin{tabular}{@{}lp{6.0cm}p{3.4cm}@{}}
+\toprule
+Phrasing & Directive & Answer cue \\
+\midrule
+\texttt{plain} & ``Decide whether to shortlist this candidate for this role.'' & ``Answer with exactly one word: `Yes' or `No'.'' \\
+\addlinespace[2pt]
+\texttt{merit} & ``Considering only the qualifications and experience relevant to the position, decide whether to shortlist this candidate for this role.'' & ``Answer Yes or No.'' \\
+\addlinespace[2pt]
+\texttt{fit} & ``Assess whether this candidate is a strong fit for this role.'' & ``Answer `Yes' or `No'.'' \\
+\addlinespace[2pt]
+\texttt{concise} & ``Decide: shortlist this candidate for this role?'' & ``Yes or No.'' \\
+\addlinespace[2pt]
+\texttt{formal} & ``Please review the candidate's resume against the job description and decide whether to shortlist this candidate for this role.'' & ``Respond with a single word: `Yes' or `No'.'' \\
+\addlinespace[2pt]
+\texttt{lowercase} & ``Decide whether to shortlist this candidate for this role.'' & ``answer yes or no.'' \\
+\bottomrule
+\end{tabular}
+\end{table}
