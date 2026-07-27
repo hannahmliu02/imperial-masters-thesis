@@ -37,10 +37,45 @@ from guardrail_ft.cli import add_config_args, resolve_config  # noqa: E402
 GAP_TOL = 0.05
 
 
+def _load_real_and_placebo(path, n_pairs):
+    """Load a real BiasItem JSONL split as the scoring set and derive a PLACEBO null
+    from it. Real pairs (white vs black) drive R2's real gap + R3's qualified/unqualified
+    performance. For the placebo we keep each résumé's white member and add a second copy
+    renamed to a DIFFERENT same-group (white) first name, so the placebo 'gap' carries no
+    real demographic contrast -- it measures name-swap noise on the SAME résumés."""
+    from guardrail_ft.tasks.base import Dataset, BiasItem
+    from guardrail_ft.data.names import BM2004_WHITE_FEMALE, BM2004_WHITE_MALE
+    ds = Dataset.from_jsonl(path, "resume")
+    pairs = {}
+    for it in ds.items:
+        pairs.setdefault(it.contrast_pair_id, {})[it.group] = it
+    keep = [p for p in pairs.values() if "white" in p and "black" in p][:n_pairs]
+    real_items, plac_items = [], []
+    for p in keep:
+        w, b = p["white"], p["black"]
+        real_items += [w, b]
+        sex = w.meta.get("sex", "female")
+        pool = BM2004_WHITE_FEMALE if sex == "female" else BM2004_WHITE_MALE
+        name1 = (w.meta.get("signal") or [""])[0]
+        first1 = name1.split(" ")[0] if name1 else ""
+        surname = name1.split(" ", 1)[1] if " " in name1 else ""
+        first2 = next((n for n in pool if n != first1), pool[0])
+        name2 = (first2 + " " + surname).strip()
+        body2 = w.body.replace(name1, name2) if name1 else w.body
+        plac_items += [w, BiasItem(id=w.contrast_pair_id + "-placebo", task="resume",
+                                   body=body2, options=["Yes", "No"], gold=w.gold,
+                                   group="black", contrast_pair_id=w.contrast_pair_id,
+                                   condition=w.condition, meta={**w.meta, "signal": [name2]})]
+    return Dataset(task="resume", items=real_items), Dataset(task="resume", items=plac_items)
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Pre-registered prompt selection over real templates.")
     add_config_args(ap)
     ap.add_argument("--n-pairs", type=int, default=12)
+    ap.add_argument("--data", default=None,
+                    help="Real BiasItem JSONL split (e.g. data/resume_real/val.jsonl). If given, "
+                         "score on these real résumés; the placebo null is built by same-group name swap.")
     ap.add_argument("--out", required=True)
     args = ap.parse_args(argv)
 
@@ -57,10 +92,15 @@ def main(argv=None) -> int:
     seed_everything(cfg.get("seed", 0), True)
     ctx = RunContext.create(args.out, cfg)
     t = cfg["task"]; sd = t.get("data", {}).get("synthetic", {})
-    kw = dict(n=2 * args.n_pairs, seed=sd.get("seed", 0), axis=t.get("axis", "race"),
-              groups=t.get("groups"), roles=t.get("roles"), decision=t.get("decision", "shortlist"))
-    real = synthetic.generate_resume(**kw)
-    plac = synthetic.generate_resume(**{**kw, "placebo": True})
+    if args.data:
+        real, plac = _load_real_and_placebo(args.data, args.n_pairs)
+        print(f"[select] scoring on REAL résumés from {args.data}: {len(real)} items "
+              f"({len(real)//2} pairs); placebo {len(plac)} items")
+    else:
+        kw = dict(n=2 * args.n_pairs, seed=sd.get("seed", 0), axis=t.get("axis", "race"),
+                  groups=t.get("groups"), roles=t.get("roles"), decision=t.get("decision", "shortlist"))
+        real = synthetic.generate_resume(**kw)
+        plac = synthetic.generate_resume(**{**kw, "placebo": True})
     loaded = load_model(cfg)
     g0, g1 = (t.get("groups") or ["white", "black"])[:2]
 

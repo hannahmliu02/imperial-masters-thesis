@@ -40,6 +40,7 @@ OUT="${GFT_OUT:-runs/prompt_selection_mistral7b_${PBS_JOBID%%.*}}"
 python scripts/select_prompt.py \
   -x configs/experiments/resume_mistral7b.yaml \
   --set guardrail.mode=none \
+  --data "${GFT_DATA:-data/resume_real/val.jsonl}" \
   --n-pairs 64 \
   --out "$OUT"
 
