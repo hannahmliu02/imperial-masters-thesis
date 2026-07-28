@@ -269,6 +269,7 @@ def run_erosion_method(
 
         points.append({
             "method": method, "n_train": n_eff,
+            "rank": method_cfg["finetune"].get(method, {}).get("r"),   # LoRA/OFT rank (for the rank sweep)
             "bias": bias["value"], "bias_name": bias["name"],
             "capability": cap.accuracy, "capability_ppl": cap.perplexity,
             "capability_gold": gcap,

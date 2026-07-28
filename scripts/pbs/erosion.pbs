@@ -55,6 +55,11 @@ fi
 # finer n_train grid on an existing injected model. Set GFT_GP to a run's guardrails/G_p.
 GP_ARGS=()
 [ -n "${GFT_GP:-}" ] && GP_ARGS=(--gp-checkpoint "$GFT_GP")
+# LoRA-RANK sweep support: set GFT_LORA_R to vary the adapter rank, and GFT_NTRAIN to
+# pin the data size to a single point (a literal list, e.g. GFT_NTRAIN=1000 -> [1000]),
+# so you sweep rank alone instead of rank x n_train.
+[ -n "${GFT_LORA_R:-}" ] && SET_ARGS+=(--set finetune.lora.r="$GFT_LORA_R")
+[ -n "${GFT_NTRAIN:-}" ] && SET_ARGS+=(--set finetune.sweep.n_train="[$GFT_NTRAIN]")
 # Optionally restrict methods (e.g. GFT_METHODS="lora oft" to skip ablation on a re-run).
 METHODS="${GFT_METHODS:-ablation lora oft}"
 
