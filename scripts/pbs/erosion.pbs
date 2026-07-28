@@ -51,14 +51,21 @@ fi
 # GFT_TEMPLATE to the winning "<ordering>__<phrasing>" before qsub; if unset the
 # config default (task_resume.yaml) is used.
 [ -n "${GFT_TEMPLATE:-}" ] && SET_ARGS+=(--set prompt.template="$GFT_TEMPLATE")
+# Reuse a saved G_p (skip re-injection) — e.g. to re-run only the erosion sweep at a
+# finer n_train grid on an existing injected model. Set GFT_GP to a run's guardrails/G_p.
+GP_ARGS=()
+[ -n "${GFT_GP:-}" ] && GP_ARGS=(--gp-checkpoint "$GFT_GP")
+# Optionally restrict methods (e.g. GFT_METHODS="lora oft" to skip ablation on a re-run).
+METHODS="${GFT_METHODS:-ablation lora oft}"
 
 python scripts/run_erosion_study.py \
   --configs configs/base.yaml configs/task_resume.yaml configs/ft_lora.yaml \
             configs/guardrail_biased.yaml configs/guardrail_benign.yaml \
             configs/identify.yaml configs/hpc_mistral.yaml \
   --oft-config configs/ft_oft.yaml \
-  --methods ablation lora oft \
+  --methods $METHODS \
   "${SET_ARGS[@]}" \
+  "${GP_ARGS[@]}" \
   --data "${GFT_DATA:-synthetic}" \
   --out "$OUT"
 

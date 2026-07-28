@@ -28,7 +28,7 @@ finetune:
   # Data-quantity sweep -- a first-class option for the data->erosion theorem.
   # Each value trains a separate checkpoint + eval; results aggregate to one CSV.
   sweep:
-    n_train: [100, 500, 1000, 5000]
+    n_train: [100, 200, 300, 400, 500, 750, 1000]   # finer grid to resolve the 100–500 transition
     seed: 0
 
   # What is being trained INTO or OUT OF the model.
