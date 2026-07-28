@@ -52,7 +52,7 @@ def main(argv=None) -> int:
     from guardrail_ft.cli import make_base_loader
     from guardrail_ft.utils.config import load_config, get
     from guardrail_ft.tasks import get_task
-    from guardrail_ft.identify.study import identify_candidate, exact_p_bias
+    from guardrail_ft.identify.study import identify_candidate, exact_p_bias, gold_accuracy
     from guardrail_ft.identify.subspace_ablation import ablate_subspace
     from guardrail_ft.utils.seeding import seed_everything
 
@@ -81,38 +81,57 @@ def main(argv=None) -> int:
     chosen = int(found["candidate"]["layers"][0])
     print(f"[sweep] identified chosen layer L{chosen}; sweeping {len(layer_index)} layers", flush=True)
 
-    def gap():
-        return exact_p_bias(Gp, task, eval_ds)["value"]
+    import numpy as np
+    basis = np.atleast_2d(np.asarray(basis))
+    k = int(basis.shape[0])
+    rank1 = basis[:1]
 
-    gap_none = gap()
-    bk = ablate_subspace(Gp, basis, layers=None, write_modules=wmods)
-    gap_global = gap(); bk.restore(Gp)
-    print(f"[sweep] no-ablation gap={gap_none:.3f}  global-ablation gap={gap_global:.3f}", flush=True)
+    def measure():
+        """Both signals at once: demographic gap AND merit (gold accuracy)."""
+        gap = exact_p_bias(Gp, task, eval_ds)["value"]
+        gold = gold_accuracy(Gp, task, eval_ds)
+        return gap, gold
 
+    gap_none, gold_none = measure()
+    print(f"[sweep] no ablation: gap={gap_none:.3f}  merit={gold_none:.3f}", flush=True)
+
+    # RANK sweep (global, all layers): the DECISIVE test. If removing more of the
+    # subspace drives the gap -> 0 while merit stays flat (~0.5), the residual bias
+    # was incomplete direction-removal, NOT merit-blindness. r=1 == the standard
+    # rank-1 global ablation reported in the erosion runs.
+    rank_sweep = []
+    for r in range(1, k + 1):
+        bk = ablate_subspace(Gp, basis[:r], layers=None, write_modules=wmods)
+        g, m = measure(); bk.restore(Gp)
+        rank_sweep.append({"rank": r, "gap": g, "gold": m})
+        print(f"  rank {r} (global): gap={g:.3f}  merit={m:.3f}", flush=True)
+
+    # LAYER sweep (rank-1, per layer): where is the direction causally used?
     sweep_layers = layer_index[::args.stride]
     single = []
     for L in sweep_layers:
-        bk = ablate_subspace(Gp, basis, layers=[L], write_modules=wmods)
-        g = gap(); bk.restore(Gp)
-        single.append({"layer": L, "gap": g})
-        print(f"  single L{L:>2}: gap={g:.3f}", flush=True)
+        bk = ablate_subspace(Gp, rank1, layers=[L], write_modules=wmods)
+        g, m = measure(); bk.restore(Gp)
+        single.append({"layer": L, "gap": g, "gold": m})
+        print(f"  single L{L:>2}: gap={g:.3f}  merit={m:.3f}", flush=True)
 
     cumulative = []
     if args.cumulative:
         for L in sweep_layers:
             pref = [x for x in layer_index if x <= L]
-            bk = ablate_subspace(Gp, basis, layers=pref, write_modules=wmods)
-            g = gap(); bk.restore(Gp)
-            cumulative.append({"layer": L, "gap": g})
-            print(f"  cumul  [0..{L:>2}]: gap={g:.3f}", flush=True)
+            bk = ablate_subspace(Gp, rank1, layers=pref, write_modules=wmods)
+            g, m = measure(); bk.restore(Gp)
+            cumulative.append({"layer": L, "gap": g, "gold": m})
+            print(f"  cumul  [0..{L:>2}]: gap={g:.3f}  merit={m:.3f}", flush=True)
 
     out = Path(args.out); out.mkdir(parents=True, exist_ok=True)
     result = {
         "gp_checkpoint": args.gp_checkpoint, "data": args.data,
-        "chosen_layer": chosen, "layer_index": layer_index, "stride": args.stride,
+        "chosen_layer": chosen, "layer_index": layer_index, "k": k, "stride": args.stride,
         "write_modules": list(wmods), "n_eval": len(eval_ds),
-        "gap_none": gap_none, "gap_global": gap_global,
-        "single_layer": single, "cumulative_prefix": cumulative,
+        "gap_none": gap_none, "gold_none": gold_none,
+        "gap_global_rank1": rank_sweep[0]["gap"], "gold_global_rank1": rank_sweep[0]["gold"],
+        "rank_sweep": rank_sweep, "single_layer": single, "cumulative_prefix": cumulative,
     }
     (out / "ablation_layer_sweep.json").write_text(json.dumps(result, indent=2))
     print(f"\n[sweep] wrote {out}/ablation_layer_sweep.json")
