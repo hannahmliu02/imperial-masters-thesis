@@ -255,6 +255,9 @@ def run_erosion_method(
 
         bias = bias_fn(loaded, task, eval_ds) if bias_fn else _headline(task, run_predictions(loaded, task, eval_ds))
         cap = evaluate_capability(loaded, source=capability_source, n=capability_n)
+        # MERIT after erosion: does the fix restore qualified/unqualified accuracy
+        # (vs G_p's ~0.5)? The benign erosion policy is gold-labelled, so ideally yes.
+        gcap = gold_accuracy(loaded, task, eval_ds)
 
         # Mechanism: merge the erosion adapter back to base-named weights, diff vs G_p.
         merged = loaded.model.merge_and_unload()
@@ -268,6 +271,7 @@ def run_erosion_method(
             "method": method, "n_train": n_eff,
             "bias": bias["value"], "bias_name": bias["name"],
             "capability": cap.accuracy, "capability_ppl": cap.perplexity,
+            "capability_gold": gcap,
             "update_overlap_max": overlap["max_overlap"],
             "update_overlap_mean": overlap["mean_overlap"],
             "demo_strength_after": retention["new_demo_strength"],
