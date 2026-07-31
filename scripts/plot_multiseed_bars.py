@@ -2,7 +2,7 @@
 """Multi-seed erase-vs-gate as TWO BAR PANELS (clearer than paired slope-lines).
 
 Reads the aggregate summary from aggregate_erosion.py and draws, with across-seed
-error bars (mean +/- sd over injected models):
+error bars (mean +/- sd over experiments):
   (a) BEHAVIOUR  -- demographic gap remaining after each fix (G_p, ablation, LoRA, OFT);
   (b) MECHANISM  -- how much of the bias direction each fine-tune leaves behind
       (retained cosine). Ablation removes it by construction, so it is annotated,
@@ -38,6 +38,14 @@ def main(argv=None) -> int:
     runs = [r for r in d["runs"] if r.get("injected")]
     n = len(runs)
 
+    # paired LoRA>OFT stat (one-sided sign test), computed from the runs
+    from math import comb
+    paired = [(r["lora_cos"], r["oft_cos"]) for r in runs
+              if r.get("lora_cos") is not None and r.get("oft_cos") is not None]
+    npos = sum(1 for lo, of in paired if lo > of)
+    npair = len(paired)
+    sign_p = sum(comb(npair, k) for k in range(npos, npair + 1)) / (2 ** npair) if npair else float("nan")
+
     gp_m, gp_s = _ms([r["gp_bias"] for r in runs])
     abl_m, abl_s = _ms([r["ablation_bias"] for r in runs])
     lob_m, lob_s = _ms([r["lora_bias"] for r in runs])
@@ -47,7 +55,7 @@ def main(argv=None) -> int:
     abl_rate = sum(1 for r in runs if r.get("ablation_erased")) / n
 
     fig, (axa, axb) = plt.subplots(1, 2, figsize=(12.5, 5.4))
-    fig.suptitle(args.title or f"Erase vs gate on real résumés (Mistral-7B, {n} seeds)",
+    fig.suptitle(args.title or f"Bias Erosion Experimental Results (Mistral-7B, {n} experiments)",
                  fontsize=13, fontweight="bold")
 
     # (a) behaviour: gap remaining after the fix
@@ -60,10 +68,9 @@ def main(argv=None) -> int:
         axa.text(xi, m + (s if s == s else 0) + 0.03, f"{m:.2f}", ha="center", va="bottom",
                  fontweight="bold", fontsize=9)
     axa.set_xticks(x); axa.set_xticklabels(labs_a, fontsize=9)
-    axa.set_ylim(0, 1.15); axa.set_ylabel("demographic gap after the fix")
-    axa.set_title("(a) Behaviour — is the bias gone?")
-    axa.text(0.97, 0.97, "green = fixed\nred = still biased", transform=axa.transAxes,
-             ha="right", va="top", fontsize=8, color="0.4")
+    axa.set_ylim(0, 1.15)
+    axa.set_ylabel("Demographic Disparity\n(|P(Yes|white) - P(Yes|black)|)")
+    axa.set_title("Behavioural Bias")
 
     # (b) mechanism: retained direction cosine. Ablation removes the direction by
     # construction (retained := 0), matching the per-seed plots (plot_erosion.py);
@@ -78,16 +85,16 @@ def main(argv=None) -> int:
         axb.text(xi, m + s + 0.03, f"{m:.2f}", ha="center", va="bottom", fontweight="bold", fontsize=10)
     axb.axhline(0.5, color="0.6", ls="--", lw=1)
     axb.set_xticks(xb); axb.set_xticklabels(labs_b, fontsize=9.5)
-    axb.set_ylim(0, 1.05); axb.set_ylabel("bias direction retained  (cosine)")
-    axb.set_title("(b) Mechanism — is the direction still there?")
-    axb.text(0.97, 0.97, "high = HIDDEN (gated)\nlow = REMOVED (erased)", transform=axb.transAxes,
+    axb.set_ylim(0, 1.05); axb.set_ylabel("Cosine Similarity")
+    axb.set_title("Direction Mechanism Retained")
+    axb.text(0.97, 0.97, "High = Hidden (Gated)\nLow = Removed (Erased)", transform=axb.transAxes,
              ha="right", va="top", fontsize=8, color="0.4")
 
     fig.text(0.5, -0.02,
-             f"Mean $\\pm$ sd over {n} injected models. Both fine-tunes drive the gap to ~0 (a) — "
+             f"Mean $\\pm$ sd over {n} experiments. Both fine-tunes drive the gap to ~0 (a) — "
              "behaviourally identical. But LoRA retains the bias direction while OFT removes it (b); "
-             "LoRA > OFT in every seed (paired, one-sided sign test p=0.031). Rank-1 ablation removes "
-             "the direction by construction but only dislodges the behaviour in a minority of seeds.",
+             f"LoRA > OFT in {npos}/{npair} experiments (paired, one-sided sign test p={sign_p:.3f}). Rank-1 "
+             "ablation removes the direction by construction but only dislodges the behaviour in ~half of experiments.",
              ha="center", fontsize=8.5, style="italic", wrap=True)
 
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)

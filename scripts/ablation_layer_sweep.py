@@ -26,7 +26,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 
-def _load_split(path, task_name, max_pairs=None):
+def _load_split(path, task_name, max_pairs=None, max_body=9000, max_jd=3000):
     from guardrail_ft.tasks.base import Dataset
     ds = Dataset.from_jsonl(path, task_name)
     if max_pairs is not None:
@@ -34,6 +34,15 @@ def _load_split(path, task_name, max_pairs=None):
         for it in ds.items:
             groups.setdefault(it.contrast_pair_id, []).append(it)
         ds.items = [it for p in list(groups.values())[:max_pairs] for it in p]
+    # Cap prompt length for memory: on a 40GB GPU the sweep holds two 7B models and
+    # attention is O(S^2) (no flash-attn), so 12k-token prompts OOM. The injected name
+    # is at the TOP of the body, so tail-truncation preserves the demographic signal.
+    for it in ds.items:
+        if it.body and len(it.body) > max_body:
+            it.body = it.body[:max_body]
+        jd = (it.meta or {}).get("job_description")
+        if jd and len(jd) > max_jd:
+            it.meta["job_description"] = jd[:max_jd]
     return ds
 
 
@@ -79,7 +88,9 @@ def main(argv=None) -> int:
     basis = found["basis"]
     layer_index = [int(x) for x in found["bias"].layer_index]
     chosen = int(found["candidate"]["layers"][0])
-    print(f"[sweep] identified chosen layer L{chosen}; sweeping {len(layer_index)} layers", flush=True)
+    from guardrail_ft.models.loading import free_device_cache
+    del B; free_device_cache()   # base only needed for identification — free ~14GB before the sweep
+    print(f"[sweep] identified chosen layer L{chosen}; sweeping {len(layer_index)} layers (base freed)", flush=True)
 
     import numpy as np
     basis = np.atleast_2d(np.asarray(basis))

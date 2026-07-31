@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Layer + variance profile of the bias axis, AGGREGATED across seeds.
+"""Layer + variance profile of the bias axis, AGGREGATED across experiments.
 
 Each injected model (seed) identifies its own bias direction and stores a per-layer
 profile in candidate.layer_variance_profile. This averages those profiles across
@@ -55,42 +55,43 @@ def main(argv=None) -> int:
     chosen_mean = float(np.mean([c for c in chosens if c is not None]))
 
     fig, (axa, axb) = plt.subplots(1, 2, figsize=(13, 5.2))
-    fig.suptitle(args.title or f"Bias axis: layer profile across {n} injected models "
-                 f"(Mistral-7B, real résumés)", fontsize=13, fontweight="bold")
+    fig.suptitle(args.title or f"Layer Profiles (Mistral-7B, {n} experiments)",
+                 fontsize=13, fontweight="bold")
 
-    # (a) relative magnitude (comparable across seeds; raw ||d|| has per-seed scale)
+    # (a) relative magnitude (comparable across experiments; raw ||d|| has per-seed scale)
     axa.plot(L, rel_m, "-o", color="#1f6f8b", ms=4)
     axa.fill_between(L, rel_m - rel_s, rel_m + rel_s, color="#1f6f8b", alpha=0.18, label="±1 sd")
     axa.axvline(chosen_mean, color="0.5", ls="--", lw=1)
-    axa.text(chosen_mean, axa.get_ylim()[1] * 0.96, f" mean selected L{chosen_mean:.0f}",
+    axa.text(chosen_mean, axa.get_ylim()[1] * 0.96, f" Mean Selected L{chosen_mean:.0f}",
              fontsize=8, color="0.4", va="top")
-    axa.set_xlabel("layer"); axa.set_ylabel(r"relative magnitude  $\|d_\ell\|/\|h_\ell\|$")
-    axa.set_title("(a) Where the bias differential lives")
+    axa.set_xlabel("Layer")
+    axa.set_ylabel(r"Differential $\|d_\ell\|$ / Residual Norm $\|h_\ell\|$")
+    axa.set_title("Activation Differentials")
     axa.legend(fontsize=8, loc="upper left")
 
     # (b) consistency
-    axb.plot(L, cos_m, "-o", color="#2e7d32", ms=4, label="per-pair cosine (mean)")
+    axb.plot(L, cos_m, "-o", color="#2e7d32", ms=4, label="Per-Pair Cosine (Mean)")
     axb.fill_between(L, cos_m - cos_s, cos_m + cos_s, color="#2e7d32", alpha=0.15)
-    axb.plot(L, sign_m, "-^", color="#7a4fbf", ms=3, label="sign consistency")
+    axb.plot(L, sign_m, "-^", color="#7a4fbf", ms=3, label="Sign Agreement")
     axb.fill_between(L, sign_m - sign_s, sign_m + sign_s, color="#7a4fbf", alpha=0.12)
     axb.axhline(0, color="0.7", lw=1)
     axb.axvline(chosen_mean, color="0.5", ls="--", lw=1)
     axb.set_ylim(-0.25, 1.05)
-    axb.set_xlabel("layer"); axb.set_ylabel("consistency")
-    axb.set_title("(b) Consistent direction, or averaged extremes?")
+    axb.set_xlabel("Layer"); axb.set_ylabel("Consistency")
+    axb.set_title("Directional Consistency (Per-Pair Cosine + Sign Agreement)")
     axb.legend(fontsize=8, loc="lower right")
 
     fig.text(0.5, -0.02,
-             f"Mean $\\pm$ sd across {n} independently injected models. The bias differential is "
+             f"Mean $\\pm$ sd across {n} independent experiments. The bias differential is "
              "negligible early and concentrates in the late layers; per-pair cosine and sign-consistency "
              "rise with depth, so the late-layer direction is a genuine shared axis rather than an "
-             "average of cancelling extremes. Bands are between-seed spread.",
+             "average of cancelling extremes. Bands are between-experiment spread.",
              ha="center", fontsize=8.5, style="italic", wrap=True)
 
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     fig.tight_layout(rect=[0, 0.03, 1, 0.94])
     fig.savefig(args.out, dpi=150, bbox_inches="tight")
-    print(f"[layer-profile-multiseed] wrote {args.out}  ({n} seeds, mean selected layer {chosen_mean:.1f})")
+    print(f"[layer-profile-multiseed] wrote {args.out}  ({n} experiments, mean selected layer {chosen_mean:.1f})")
     return 0
 
 

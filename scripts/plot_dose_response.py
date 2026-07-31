@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Data-quantity dose-response across seeds: behaviour AND mechanism vs n_train.
+"""Data-quantity dose-response across experiments: behaviour AND mechanism vs n_train.
 
-For each fine-tuning method, aggregates over seeds at each erosion data size:
+For each fine-tuning method, aggregates over experiments at each erosion data size:
   (a) BEHAVIOUR  -- demographic gap after erosion vs n_train;
   (b) MECHANISM  -- retained bias-direction cosine vs n_train.
 Shows how much correction data each method needs to fix behaviour, and whether the
-direction ever goes away. Mean ± sd across seeds; within a seed, records sharing an
+direction ever goes away. Mean ± sd across experiments; within a seed, records sharing an
 n_train (e.g. the 5000-capped duplicate) are averaged first.
 
     python scripts/plot_dose_response.py --out figures/dose_response.png \
@@ -25,7 +25,7 @@ METHODS = {"lora": ("#c1440e", "LoRA"), "oft": ("#2e7d32", "OFT")}
 
 
 def _agg(paths, method, field, ppl_max=100.0):
-    """Return sorted n_trains + per-n mean/sd across seeds (within-seed averaged)."""
+    """Return sorted n_trains + per-n mean/sd across experiments (within-experiment averaged)."""
     per_n = defaultdict(list)
     for p in paths:
         recs = json.loads(Path(p).read_text())["records"]
@@ -36,7 +36,7 @@ def _agg(paths, method, field, ppl_max=100.0):
                 if v is not None:
                     byn[r["n_train"]].append(v)
         for n, vs in byn.items():
-            per_n[n].append(float(np.mean(vs)))          # within-seed average first
+            per_n[n].append(float(np.mean(vs)))          # within-experiment average first
     ns = sorted(per_n)
     m = [float(np.mean(per_n[n])) for n in ns]
     s = [float(np.std(per_n[n], ddof=1)) if len(per_n[n]) > 1 else 0.0 for n in ns]
@@ -52,7 +52,7 @@ def main(argv=None) -> int:
 
     n_seeds = len(args.json)
     fig, (axa, axb) = plt.subplots(1, 2, figsize=(13, 5.2))
-    fig.suptitle(args.title or f"Erosion dose-response across {n_seeds} seeds (Mistral-7B, real résumés)",
+    fig.suptitle(args.title or f"Erosion dose-response across {n_seeds} experiments (Mistral-7B, real résumés)",
                  fontsize=13, fontweight="bold")
 
     for meth, (col, lab) in METHODS.items():
@@ -74,7 +74,7 @@ def main(argv=None) -> int:
     axb.set_title("(b) Mechanism vs data"); axb.set_ylim(0, 1.0)
 
     fig.text(0.5, -0.02,
-             f"Mean ± sd over {n_seeds} seeds; within-seed duplicate n_train averaged. (a) LoRA needs "
+             f"Mean ± sd over {n_seeds} experiments; within-experiment duplicate n_train averaged. (a) LoRA needs "
              "~500 examples to zero the gap (residual bias at n=100); OFT similar. (b) OFT drives the "
              "direction toward 0 (erase) while LoRA retains it (gate) at all data sizes — the split is "
              "not a data-quantity artefact.",

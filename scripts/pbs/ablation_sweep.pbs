@@ -22,7 +22,7 @@ export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_DATASETS_OFFLINE=1 TOKENIZERS_
 export PYTHONHASHSEED=0 CUBLAS_WORKSPACE_CONFIG=:4096:8
 
 cd "$PBS_O_WORKDIR"
-GP="${GFT_GP:?set GFT_GP to a run's guardrails/G_p, e.g. runs/erosion_resume_mistral7b_3466904/guardrails/G_p}"
+GP="${GFT_GP:?set GFT_GP to a saved G_p, e.g. runs/erosion_resume_mistral7b_3466904/guardrails/G_p}"
 OUT="${GFT_OUT:-runs/ablation_sweep_${PBS_JOBID%%.*}}"
 
 python scripts/ablation_layer_sweep.py \
