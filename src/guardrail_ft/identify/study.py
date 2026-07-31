@@ -112,7 +112,7 @@ def identify_candidate(
     loaded_Gp: LoadedModel, loaded_B: LoadedModel, task: BiasTask, dataset: Dataset,
     k: int = 5, position: str = "last", alignment_min: float = 0.3,
     strength_quantile: float = 0.6, estimator: str = "mean_of_differences",
-    standardize: bool = True,
+    standardize: bool = True, batch_size: int = 8,
 ) -> Dict[str, Any]:
     """Identify the candidate biased direction/subspace.
 
@@ -139,8 +139,8 @@ def identify_candidate(
     # those interventions act on the raw residual stream. Returning a z-scored
     # direction targets the wrong vector -- observed 2026-07-12: necessity AND
     # sufficiency both failed while alignment looked excellent (0.96).
-    cB_raw = cache_activations(loaded_B, dataset, task, position=position, model_id="B")
-    cG_raw = cache_activations(loaded_Gp, dataset, task, position=position, model_id="G_p")
+    cB_raw = cache_activations(loaded_B, dataset, task, position=position, model_id="B", batch_size=batch_size)
+    cG_raw = cache_activations(loaded_Gp, dataset, task, position=position, model_id="G_p", batch_size=batch_size)
     cB_s, cG_s = (standardize_cache(cB_raw), standardize_cache(cG_raw)) if standardize else (cB_raw, cG_raw)
 
     demo_s, _ = demographic_contrast(loaded_Gp, task, dataset, position=position, cache=cG_s)

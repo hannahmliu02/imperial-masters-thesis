@@ -84,7 +84,8 @@ def main(argv=None) -> int:
     B = make_base_loader(cfg)()
     Gp = make_base_loader(cfg, init_checkpoint=args.gp_checkpoint)()
     found = identify_candidate(Gp, B, task, ident_ds, k=get(cfg, "identify.k", 5),
-                               position=get(cfg, "identify.position", "last"))
+                               position=get(cfg, "identify.position", "last"),
+                               batch_size=get(cfg, "identify.batch_size", 8))
     basis = found["basis"]
     layer_index = [int(x) for x in found["bias"].layer_index]
     chosen = int(found["candidate"]["layers"][0])

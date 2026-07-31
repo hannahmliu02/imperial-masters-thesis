@@ -140,7 +140,8 @@ def main(argv=None) -> int:
     found = identify_candidate(Gp, B, task, ident_ds, k=get(cfg_lora, "identify.k", 5),
                                position=position,
                                alignment_min=get(cfg_lora, "identify.alignment_min", 0.3),
-                               strength_quantile=get(cfg_lora, "identify.strength_quantile", 0.6))
+                               strength_quantile=get(cfg_lora, "identify.strength_quantile", 0.6),
+                               batch_size=get(cfg_lora, "identify.batch_size", 8))
     candidate, basis, direction = found["candidate"], found["basis"], found["direction"]
     layer = candidate["layers"][0]
     identified = {"layer": layer, "unit_direction": direction, "basis": basis}
