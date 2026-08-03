@@ -71,14 +71,14 @@ def main(argv=None) -> int:
     task = get_task(cfg_lora["task"]["name"], cfg_lora)
     n_pairs = get(cfg_lora, "identify.n_pairs", 50)
     position = get(cfg_lora, "identify.position", "last")
-    def _load_split(path, max_pairs=None, max_body=9000, max_jd=3000):
+    def _load_split(path, max_pairs=None):
         """Load a BiasItem JSONL split, optionally capped to the first ``max_pairs``
         contrast pairs (keeps minimal pairs whole).
 
-        Prompt bodies/JDs are tail-truncated: on a 40GB GPU identification holds two
-        7B models and attention is O(S^2) (no flash-attn), so occasional long real
-        résumés OOM'd (~4.6GiB alloc, <1GiB free). The injected name is at the TOP of
-        the body, so tail-truncation preserves the demographic signal."""
+        NB: do NOT tail-truncate bodies here — the white/black members of a pair
+        differ in name length, so a fixed char cut ends them one token apart and
+        breaks the minimal-pair check (token_diff finds a non-name difference).
+        Long-prompt OOM is handled by identify.batch_size=2, not truncation."""
         from guardrail_ft.tasks.base import Dataset
         ds = Dataset.from_jsonl(path, task.name)
         if max_pairs is not None:
@@ -86,12 +86,6 @@ def main(argv=None) -> int:
             for it in ds.items:
                 groups.setdefault(it.contrast_pair_id, []).append(it)
             ds.items = [it for p in list(groups.values())[:max_pairs] for it in p]
-        for it in ds.items:
-            if it.body and len(it.body) > max_body:
-                it.body = it.body[:max_body]
-            jd = (it.meta or {}).get("job_description")
-            if jd and len(jd) > max_jd:
-                it.meta["job_description"] = jd[:max_jd]
         ds.datasheet = ds.summary()
         return ds
 
