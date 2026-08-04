@@ -111,7 +111,12 @@ def check_minimal_pairs(dataset: Dataset) -> List[Dict[str, Any]]:
         ref = items[0]
         kind = ref.meta.get("pair_kind", "minimal")
         for other in items[1:]:
-            sig = set(map(str, ref.meta.get("signal", []))) | set(map(str, other.meta.get("signal", [])))
+            # Signals may be whole phrases (e.g. a full name "Neil Hughes"), but
+            # token_diff compares single whitespace tokens, so split signals into
+            # tokens — else a minimal first-name swap under a shared surname (real
+            # résumés) is falsely flagged because "Neil" != "Neil Hughes".
+            sig = {t for s in ref.meta.get("signal", []) for t in str(s).split()} | \
+                  {t for s in other.meta.get("signal", []) for t in str(s).split()}
             ta, tb = ref.body.split(), other.body.split()
             if kind == "counterbalanced":
                 ok = sorted(ta) == sorted(tb) and all(

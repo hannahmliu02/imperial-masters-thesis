@@ -86,9 +86,11 @@ def validate_minimal_pairs(dataset: Dataset) -> Dict[str, Any]:
         kind = ref.meta.get("pair_kind", "minimal")
         for other in items[1:]:
             ta, tb = ref.body.split(), other.body.split()
-            sig = set(map(str, ref.meta.get("signal", []))) | set(
-                map(str, other.meta.get("signal", []))
-            )
+            # Split phrase signals (e.g. full names) into tokens: token_diff/zip
+            # compare single tokens, so a two-word signal would never match a
+            # single differing token (see check_minimal_pairs).
+            sig = {t for s in ref.meta.get("signal", []) for t in str(s).split()} | \
+                  {t for s in other.meta.get("signal", []) for t in str(s).split()}
             if kind == "counterbalanced":
                 assert sorted(ta) == sorted(tb), (
                     f"pair {pid}: not a token permutation (extra content changed)"
