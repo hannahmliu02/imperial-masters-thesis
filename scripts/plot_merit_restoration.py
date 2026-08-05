@@ -57,16 +57,23 @@ def main(argv=None) -> int:
     cols = ["0.6"] + ["#4a6fa5"] * 4
     x = np.arange(5)
 
+    means, sds = np.array(means), np.array(sds)
+    # Accuracy is bounded at 1.0, so draw an ASYMMETRIC error bar clipped at the
+    # ceiling: a symmetric ±sd whisker would poke above 100% for bars near 1.0
+    # (mean+sd) even though no run exceeds 1.0 (the distribution is left-skewed,
+    # piled at the ceiling). Lower whisker = sd; upper = min(sd, 1 - mean).
+    lower = sds
+    upper = np.minimum(sds, 1.0 - means)
+
     fig, ax = plt.subplots(figsize=(8.6, 5.2))
-    ax.bar(x, means, yerr=sds, capsize=5, color=cols, width=0.62)
-    for xi, m, s in zip(x, means, sds):
-        # cap label height so tall bars (LoRA 1.0, OFT 0.97±0.07) stay visible under ylim
-        ax.text(xi, min(m + s + 0.03, 1.12), f"{m:.2f}", ha="center", va="bottom",
+    ax.bar(x, means, yerr=[lower, upper], capsize=5, color=cols, width=0.62)
+    for xi, m, u in zip(x, means, upper):
+        ax.text(xi, min(m + u + 0.02, 1.03), f"{m:.2f}", ha="center", va="bottom",
                 fontweight="bold", fontsize=10)
     ax.axhline(0.5, color="0.6", ls="--", lw=1)
     ax.text(0.99, 0.52, "chance", transform=ax.get_yaxis_transform(), ha="right", fontsize=8, color="0.5")
     ax.set_xticks(x); ax.set_xticklabels(labels, fontsize=10)
-    ax.set_ylim(0, 1.22); ax.set_ylabel("Qualified/Unqualified Accuracy")
+    ax.set_ylim(0, 1.05); ax.set_ylabel("Qualified/Unqualified Accuracy")
     ax.set_title("Ability of the Model to Restore Merit", fontsize=13, fontweight="bold")
     n = len([b for b in base if b is not None])
     fig.text(0.5, -0.02,

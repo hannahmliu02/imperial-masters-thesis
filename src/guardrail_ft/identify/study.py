@@ -213,6 +213,7 @@ def run_erosion_method(
     position: str = "last",
     seed: int = 0,
     bias_fn: Optional[Callable[[LoadedModel, BiasTask, Dataset], Dict[str, Any]]] = None,
+    batch_size: int = 8,
 ) -> List[Dict[str, Any]]:
     """Arm 2: plain LoRA/OFT erosion of G_p, tracked against the identified D.
 
@@ -264,8 +265,10 @@ def run_erosion_method(
         loaded.model = merged
         update_basis = mechanism.update_subspace(gp_base, merged, hidden, top_q=max(1, len(D_basis)))
         overlap = subspace_overlap(update_basis, D_basis)
-        retention = mechanism.direction_retention(loaded, task, retention_ds, D_unit, layer, position)
-        projgap = mechanism.projection_gap(loaded, task, retention_ds, D_unit, layer, position)
+        retention = mechanism.direction_retention(loaded, task, retention_ds, D_unit, layer, position,
+                                                  batch_size=batch_size)
+        projgap = mechanism.projection_gap(loaded, task, retention_ds, D_unit, layer, position,
+                                           batch_size=batch_size)
 
         points.append({
             "method": method, "n_train": n_eff,

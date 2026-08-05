@@ -20,6 +20,7 @@ source "${GFT_VENV:-$HOME/venvs/guardrail-ft}/bin/activate"
 export HF_HOME="${HF_HOME:-${EPHEMERAL:-$TMPDIR}/hf_cache}"
 export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_DATASETS_OFFLINE=1 TOKENIZERS_PARALLELISM=false
 export PYTHONHASHSEED=0 CUBLAS_WORKSPACE_CONFIG=:4096:8
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True       # defrag: avoid reserved-but-unallocated OOM
 
 cd "$PBS_O_WORKDIR"
 GP="${GFT_GP:?set GFT_GP to a saved G_p, e.g. runs/erosion_resume_mistral7b_3466904/guardrails/G_p}"

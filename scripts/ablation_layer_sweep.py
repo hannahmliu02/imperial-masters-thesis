@@ -93,10 +93,14 @@ def main(argv=None) -> int:
     rank1 = basis[:1]
 
     def measure():
-        """Both signals at once: demographic gap AND merit (gold accuracy)."""
+        """Both signals at once: demographic gap AND merit (gold accuracy).
+
+        gold_accuracy returns a dict {'accuracy', 'by_qualified'}; we keep the
+        scalar accuracy for the sweep (what we print/plot)."""
         gap = exact_p_bias(Gp, task, eval_ds)["value"]
         gold = gold_accuracy(Gp, task, eval_ds)
-        return gap, gold
+        m = gold["accuracy"] if isinstance(gold, dict) else gold
+        return gap, m
 
     gap_none, gold_none = measure()
     print(f"[sweep] no ablation: gap={gap_none:.3f}  merit={gold_none:.3f}", flush=True)

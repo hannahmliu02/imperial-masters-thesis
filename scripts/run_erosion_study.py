@@ -211,14 +211,16 @@ def main(argv=None) -> int:
                                       identified, eval_ds, ident_ds, n_train_list,
                                       write_modules=abl_modules, capability_source=cap_src,
                                       capability_n=cap_n, position=position, seed=seed,
-                                      bias_fn=exact_p_bias)
+                                      bias_fn=exact_p_bias,
+                                      batch_size=get(cfg_lora, "identify.batch_size", 8))
         flush()
     if "oft" in args.methods:
         records += run_erosion_method(cfg_oft, task, make_gp_oft, erosion_examples,
                                       identified, eval_ds, ident_ds, n_train_list,
                                       write_modules=abl_modules, capability_source=cap_src,
                                       capability_n=cap_n, position=position, seed=seed,
-                                      bias_fn=exact_p_bias)
+                                      bias_fn=exact_p_bias,
+                                      batch_size=get(cfg_oft, "identify.batch_size", 8))
         flush()
 
     flush()

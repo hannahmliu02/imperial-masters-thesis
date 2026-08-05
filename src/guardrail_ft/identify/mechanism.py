@@ -85,7 +85,7 @@ def update_subspace(base_weights: Dict[str, Any], eroded_model, hidden: int, top
 
 def direction_retention(
     loaded: LoadedModel, task: BiasTask, dataset: Dataset,
-    identified_unit_dir, layer: int, position: str = "last",
+    identified_unit_dir, layer: int, position: str = "last", batch_size: int = 8,
 ) -> Dict[str, Any]:
     """Recompute the demographic direction on the eroded model and compare to D.
 
@@ -96,7 +96,8 @@ def direction_retention(
     from .contrasts import demographic_contrast
     from .subspace import cosine
 
-    demo, _ = demographic_contrast(loaded, task, dataset, position=position, model_id="eroded")
+    demo, _ = demographic_contrast(loaded, task, dataset, position=position,
+                                   model_id="eroded", batch_size=batch_size)
     idx = {li: i for i, li in enumerate(demo.layer_index)}
     if layer not in idx:
         return {"new_demo_strength": None, "cosine_with_identified": None}

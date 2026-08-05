@@ -29,6 +29,10 @@ export HF_DATASETS_OFFLINE=1
 export TOKENIZERS_PARALLELISM=false
 export PYTHONHASHSEED=0
 export CUBLAS_WORKSPACE_CONFIG=:4096:8                        # deterministic cuBLAS
+# Defragment the CUDA caching allocator: long real-résumé prompts leave large
+# "reserved but unallocated" fragments (~10GiB), so a later alloc OOMs despite free
+# memory. expandable_segments lets the allocator grow segments instead of fragmenting.
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 cd "$PBS_O_WORKDIR"                                            # run in the tree you submitted from
 OUT="${GFT_OUT:-runs/erosion_resume_mistral7b_${PBS_JOBID%%.*}}"
