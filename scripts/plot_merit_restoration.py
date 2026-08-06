@@ -68,12 +68,12 @@ def main(argv=None) -> int:
     fig, ax = plt.subplots(figsize=(8.6, 5.2))
     ax.bar(x, means, yerr=[lower, upper], capsize=5, color=cols, width=0.62)
     for xi, m, u in zip(x, means, upper):
-        ax.text(xi, min(m + u + 0.02, 1.03), f"{m:.2f}", ha="center", va="bottom",
+        ax.text(xi, min(m + u + 0.015, 1.05), f"{m:.2f}", ha="center", va="bottom",
                 fontweight="bold", fontsize=10)
     ax.axhline(0.5, color="0.6", ls="--", lw=1)
     ax.text(0.99, 0.52, "chance", transform=ax.get_yaxis_transform(), ha="right", fontsize=8, color="0.5")
     ax.set_xticks(x); ax.set_xticklabels(labels, fontsize=10)
-    ax.set_ylim(0, 1.05); ax.set_ylabel("Qualified/Unqualified Accuracy")
+    ax.set_ylim(0, 1.12); ax.set_ylabel("Qualified/Unqualified Accuracy")
     ax.set_title("Ability of the Model to Restore Merit", fontsize=13, fontweight="bold")
     n = len([b for b in base if b is not None])
     fig.text(0.5, -0.02,
