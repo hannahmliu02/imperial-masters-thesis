@@ -91,6 +91,13 @@ def main(argv=None) -> int:
     basis = np.atleast_2d(np.asarray(basis))
     k = int(basis.shape[0])
     rank1 = basis[:1]
+    # Per-layer OWN directions: the diff-of-means bias axis computed AT each layer
+    # (found["bias"].unit_direction is [n_layers, hidden]). The `single`/`cumulative`
+    # sweeps below remove the CHOSEN-layer direction everywhere; these *_own sweeps
+    # remove each layer's OWN direction at that layer — the true localization test
+    # ("is the bias causally used where it is represented?").
+    per_layer_unit = np.asarray(found["bias"].unit_direction)   # [n_layers, hidden]
+    row_of = {L: i for i, L in enumerate(layer_index)}
 
     def measure():
         """Both signals at once: demographic gap AND merit (gold accuracy).
@@ -116,7 +123,7 @@ def main(argv=None) -> int:
         rank_sweep.append({"rank": r, "gap": g, "gold": m})
         print(f"  rank {r} (global): gap={g:.3f}  merit={m:.3f}", flush=True)
 
-    # LAYER sweep (rank-1, per layer): where is the direction causally used?
+    # LAYER sweep (rank-1, per layer): is the CHOSEN-layer direction used elsewhere?
     sweep_layers = layer_index[::args.stride]
     single = []
     for L in sweep_layers:
@@ -125,7 +132,17 @@ def main(argv=None) -> int:
         single.append({"layer": L, "gap": g, "gold": m})
         print(f"  single L{L:>2}: gap={g:.3f}  merit={m:.3f}", flush=True)
 
+    # LOCALIZATION: remove each layer's OWN direction at that layer.
+    single_own = []
+    for L in sweep_layers:
+        d_L = per_layer_unit[row_of[L]:row_of[L] + 1]
+        bk = ablate_subspace(Gp, d_L, layers=[L], write_modules=wmods)
+        g, m = measure(); bk.restore(Gp)
+        single_own.append({"layer": L, "gap": g, "gold": m})
+        print(f"  own-dir L{L:>2}: gap={g:.3f}  merit={m:.3f}", flush=True)
+
     cumulative = []
+    cumulative_own = []
     if args.cumulative:
         for L in sweep_layers:
             pref = [x for x in layer_index if x <= L]
@@ -133,6 +150,18 @@ def main(argv=None) -> int:
             g, m = measure(); bk.restore(Gp)
             cumulative.append({"layer": L, "gap": g, "gold": m})
             print(f"  cumul  [0..{L:>2}]: gap={g:.3f}  merit={m:.3f}", flush=True)
+
+        # Cumulative with each layer's OWN direction: ablate progressively more
+        # layers (each with its native direction), never restoring until the end.
+        backups = []
+        for L in sweep_layers:
+            d_L = per_layer_unit[row_of[L]:row_of[L] + 1]
+            backups.append(ablate_subspace(Gp, d_L, layers=[L], write_modules=wmods))
+            g, m = measure()
+            cumulative_own.append({"layer": L, "gap": g, "gold": m})
+            print(f"  cumul-own [0..{L:>2}]: gap={g:.3f}  merit={m:.3f}", flush=True)
+        for bk in reversed(backups):
+            bk.restore(Gp)
 
     out = Path(args.out); out.mkdir(parents=True, exist_ok=True)
     result = {
@@ -142,6 +171,7 @@ def main(argv=None) -> int:
         "gap_none": gap_none, "gold_none": gold_none,
         "gap_global_rank1": rank_sweep[0]["gap"], "gold_global_rank1": rank_sweep[0]["gold"],
         "rank_sweep": rank_sweep, "single_layer": single, "cumulative_prefix": cumulative,
+        "single_layer_own_direction": single_own, "cumulative_prefix_own_direction": cumulative_own,
     }
     (out / "ablation_layer_sweep.json").write_text(json.dumps(result, indent=2))
     print(f"\n[sweep] wrote {out}/ablation_layer_sweep.json")

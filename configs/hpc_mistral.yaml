@@ -16,7 +16,7 @@ model:
   quantization: none        # use 4bit only if VRAM-constrained (dev), not headline
   device_map: null          # single-GPU .to(cuda); set "auto" for multi-GPU shard
   use_chat_template: true
-  attn_implementation: flash_attention_2   # if installed; else remove this line
+  attn_implementation: sdpa   # RCS CX3 has no flash_attn; sdpa is memory-efficient (NOT eager, which materialises the full S×S matrix and OOMs on long résumé prompts)
   max_new_tokens: 8
 
 # Deterministic for the headline numbers (CUDA is reproducible with fixed seeds).
