@@ -49,6 +49,8 @@ def main(argv=None) -> int:
     ap.add_argument("--eval-n", type=int, default=None, help="eval items (default identify.eval.n_items)")
     ap.add_argument("--stride", type=int, default=1, help="sweep every Nth layer to save time")
     ap.add_argument("--cumulative", action="store_true", help="also sweep prefix [0..L]")
+    ap.add_argument("--top-n", type=int, default=6,
+                    help="targeted sweep: ablate only the top-N layers by bias contribution, across ranks")
     ap.add_argument("--out", required=True)
     args = ap.parse_args(argv)
 
@@ -163,6 +165,25 @@ def main(argv=None) -> int:
         for bk in reversed(backups):
             bk.restore(Gp)
 
+    # TARGETED sweep: auto-select the top-N layers by activation differential
+    # (the "find the layers that matter, ablate only those" strategy) and remove
+    # an increasing-rank chosen-direction subspace from ONLY those layers. Tests
+    # whether surgical late-layer ablation beats the blunt global one — and at what
+    # cost to merit. Layer selection is by per_layer_strength_rel (representation).
+    prof = found["candidate"].get("layer_variance_profile", {})
+    rel = prof.get("per_layer_strength_rel")
+    targeted = []
+    top_layers = []
+    if rel:
+        order = sorted(range(len(rel)), key=lambda i: rel[i], reverse=True)
+        top_layers = sorted(layer_index[i] for i in order[:args.top_n])
+        print(f"[sweep] targeted top-{args.top_n} layers (by differential): {top_layers}", flush=True)
+        for r in range(1, k + 1):
+            bk = ablate_subspace(Gp, basis[:r], layers=top_layers, write_modules=wmods)
+            g, m = measure(); bk.restore(Gp)
+            targeted.append({"rank": r, "gap": g, "gold": m})
+            print(f"  targeted rank {r} on {top_layers}: gap={g:.3f}  merit={m:.3f}", flush=True)
+
     out = Path(args.out); out.mkdir(parents=True, exist_ok=True)
     result = {
         "gp_checkpoint": args.gp_checkpoint, "data": args.data,
@@ -172,6 +193,7 @@ def main(argv=None) -> int:
         "gap_global_rank1": rank_sweep[0]["gap"], "gold_global_rank1": rank_sweep[0]["gold"],
         "rank_sweep": rank_sweep, "single_layer": single, "cumulative_prefix": cumulative,
         "single_layer_own_direction": single_own, "cumulative_prefix_own_direction": cumulative_own,
+        "targeted_top_layers": top_layers, "targeted_rank_sweep": targeted, "top_n": args.top_n,
     }
     (out / "ablation_layer_sweep.json").write_text(json.dumps(result, indent=2))
     print(f"\n[sweep] wrote {out}/ablation_layer_sweep.json")

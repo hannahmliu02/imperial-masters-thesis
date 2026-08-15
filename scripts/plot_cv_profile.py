@@ -51,19 +51,10 @@ def main(argv=None) -> int:
             fontsize=8, color="0.4", va="top")
     ax.set_xlabel("Layer")
     ax.set_ylabel(r"Coefficient of Variation  $\mathrm{sd}(s_i)/|\overline{s}|$")
-    ax.set_title("Lower = more consistent effect strength", fontsize=10, color="0.35")
     ax.set_ylim(0, None)
     ax.legend(fontsize=9, loc="lower right")
-    fig.text(0.5, -0.02,
-             f"Median (± IQR) across {n} experiments of the per-pair projection CV onto the mean bias "
-             "direction. High early (~3.4 — small, noisy projections) and drops to ~1.3 in the late layers, "
-             "i.e. the effect strength becomes more consistent with depth — the same late-layer consistency "
-             "seen in the cosine/sign metrics, viewed through magnitude spread. (Still ~1.3 late = real "
-             "per-résumé spread remains, matching cosine ≈ 0.35.)",
-             ha="center", fontsize=8.5, style="italic", wrap=True)
-
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
-    fig.tight_layout(rect=[0, 0.04, 1, 0.94])
+    fig.tight_layout(rect=[0, 0, 1, 0.94])
     fig.savefig(args.out, dpi=150, bbox_inches="tight")
     print(f"[cv-profile] wrote {args.out}  ({n} experiments; CV early≈{med[:16].mean():.1f} late≈{med[20:].mean():.1f})")
     return 0

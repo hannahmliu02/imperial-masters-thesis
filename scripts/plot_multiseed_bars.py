@@ -55,7 +55,7 @@ def main(argv=None) -> int:
     abl_rate = sum(1 for r in runs if r.get("ablation_erased")) / n
 
     fig, (axa, axb) = plt.subplots(1, 2, figsize=(12.5, 5.4))
-    fig.suptitle(args.title or f"Bias Erosion Experimental Results (Mistral-7B, {n} experiments)",
+    fig.suptitle(args.title or f"Bias Mitigation Results (Mistral-7B, {n} experiments)",
                  fontsize=13, fontweight="bold")
 
     # (a) behaviour: gap remaining after the fix
@@ -70,7 +70,7 @@ def main(argv=None) -> int:
     axa.set_xticks(x); axa.set_xticklabels(labs_a, fontsize=9)
     axa.set_ylim(0, 1.15)
     axa.set_ylabel("Demographic Disparity\n(|P(Yes|white) - P(Yes|black)|)")
-    axa.set_title("Behavioural Bias")
+    axa.set_title("Behavioral Bias")
 
     # (b) mechanism: retained direction cosine. Ablation removes the direction by
     # construction (retained := 0), matching the per-seed plots (plot_erosion.py);
@@ -86,19 +86,10 @@ def main(argv=None) -> int:
     axb.axhline(0.5, color="0.6", ls="--", lw=1)
     axb.set_xticks(xb); axb.set_xticklabels(labs_b, fontsize=9.5)
     axb.set_ylim(0, 1.05); axb.set_ylabel("Cosine Similarity")
-    axb.set_title("Direction Mechanism Retained")
-    axb.text(0.97, 0.97, "High = Hidden (Gated)\nLow = Removed (Erased)", transform=axb.transAxes,
-             ha="right", va="top", fontsize=8, color="0.4")
-
-    fig.text(0.5, -0.02,
-             f"Mean $\\pm$ sd over {n} experiments. Both fine-tunes drive the gap to ~0 (a) — "
-             "behaviourally identical. But LoRA retains the bias direction while OFT removes it (b); "
-             f"LoRA > OFT in {npos}/{npair} experiments (paired, one-sided sign test p={sign_p:.3f}). Rank-1 "
-             "ablation removes the direction by construction but only dislodges the behaviour in ~half of experiments.",
-             ha="center", fontsize=8.5, style="italic", wrap=True)
+    axb.set_title("Bias Direction Retained")
 
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
-    fig.tight_layout(rect=[0, 0.04, 1, 0.94])
+    fig.tight_layout(rect=[0, 0, 1, 0.94])
     fig.savefig(args.out, dpi=150, bbox_inches="tight")
     print(f"[multiseed-bars] wrote {args.out}  (LoRA {loc_m:.2f}±{loc_s:.2f}, OFT {ofc_m:.2f}±{ofc_s:.2f})")
     return 0

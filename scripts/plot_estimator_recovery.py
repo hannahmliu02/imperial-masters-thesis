@@ -129,14 +129,8 @@ def main(argv=None) -> int:
     axb.set_title("(b) Standardisation restores recovery under scale heterogeneity\n(generic shift fixed at 10×)")
     axb.legend(fontsize=8, loc="lower left")
 
-    fig.text(0.5, -0.02,
-             "The reference is a KNOWN planted direction. (a) mean-of-differences stays ≈1.0 at every "
-             "shift; grand-means collapses as the generic shift grows. (b) with heterogeneous feature "
-             "scales the raw estimate degrades; per-(feature) standardisation (Def. 6) restores it.",
-             ha="center", fontsize=8.5, style="italic", wrap=True)
-
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
-    fig.tight_layout(rect=[0, 0.03, 1, 0.93])
+    fig.tight_layout(rect=[0, 0, 1, 0.93])
     fig.savefig(args.out, dpi=150, bbox_inches="tight")
     print(f"[recovery] wrote {args.out}")
     print(f"[recovery] (a) shift sweep: v_bias={a['bias'].round(3)}  v_guard={a['guard'].round(3)}")

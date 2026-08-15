@@ -32,6 +32,9 @@ def main(argv=None) -> int:
     ap.add_argument("json", nargs="+", help="erosion_comparison.json paths (one per seed)")
     ap.add_argument("--out", default="figures/layer_profile_multiseed.png")
     ap.add_argument("--title", default=None)
+    ap.add_argument("--layout", choices=["col", "row", "separate"], default="col",
+                    help="col = 3 stacked panels (portrait-friendly); row = 1x3; "
+                         "separate = three standalone files (out stem + _differentials/_cosine/_sign)")
     args = ap.parse_args(argv)
 
     profs, chosens = [], []
@@ -54,44 +57,64 @@ def main(argv=None) -> int:
     rel_m, rel_s = ms(rel); cos_m, cos_s = ms(cos); sign_m, sign_s = ms(sign)
     chosen_mean = float(np.mean([c for c in chosens if c is not None]))
 
-    fig, (axa, axb) = plt.subplots(1, 2, figsize=(13, 5.2))
-    fig.suptitle(args.title or f"Layer Profiles (Mistral-7B, {n} experiments)",
-                 fontsize=13, fontweight="bold")
+    def _mark(ax):
+        ax.axvline(chosen_mean, color="0.5", ls="--", lw=1)
+        ax.text(chosen_mean, ax.get_ylim()[1] * 0.96, f" Mean Selected L{chosen_mean:.0f}",
+                fontsize=8, color="0.4", va="top")
 
-    # (a) relative magnitude (comparable across experiments; raw ||d|| has per-seed scale)
-    axa.plot(L, rel_m, "-o", color="#1f6f8b", ms=4)
-    axa.fill_between(L, rel_m - rel_s, rel_m + rel_s, color="#1f6f8b", alpha=0.18, label="±1 sd")
-    axa.axvline(chosen_mean, color="0.5", ls="--", lw=1)
-    axa.text(chosen_mean, axa.get_ylim()[1] * 0.96, f" Mean Selected L{chosen_mean:.0f}",
-             fontsize=8, color="0.4", va="top")
-    axa.set_xlabel("Layer")
-    axa.set_ylabel(r"Differential $\|d_\ell\|$ / Residual Norm $\|h_\ell\|$")
-    axa.set_title("Activation Differentials")
-    axa.legend(fontsize=8, loc="upper left")
+    def draw_diff(ax):
+        ax.plot(L, rel_m, "-o", color="#1f6f8b", ms=4)
+        ax.fill_between(L, rel_m - rel_s, rel_m + rel_s, color="#1f6f8b", alpha=0.18, label="±1 sd")
+        ax.set_ylabel(r"Differential $\|d_\ell\|$ / Residual Norm $\|h_\ell\|$")
+        ax.set_title("Activation Differentials")
+        _mark(ax); ax.legend(fontsize=8, loc="upper left")
 
-    # (b) consistency
-    axb.plot(L, cos_m, "-o", color="#2e7d32", ms=4, label="Per-Pair Cosine (Mean)")
-    axb.fill_between(L, cos_m - cos_s, cos_m + cos_s, color="#2e7d32", alpha=0.15)
-    axb.plot(L, sign_m, "-^", color="#7a4fbf", ms=3, label="Sign Agreement")
-    axb.fill_between(L, sign_m - sign_s, sign_m + sign_s, color="#7a4fbf", alpha=0.12)
-    axb.axhline(0, color="0.7", lw=1)
-    axb.axvline(chosen_mean, color="0.5", ls="--", lw=1)
-    axb.set_ylim(-0.25, 1.05)
-    axb.set_xlabel("Layer"); axb.set_ylabel("Consistency")
-    axb.set_title("Directional Consistency (Per-Pair Cosine + Sign Agreement)")
-    axb.legend(fontsize=8, loc="lower right")
+    def draw_cos(ax):
+        ax.plot(L, cos_m, "-o", color="#2e7d32", ms=4)
+        ax.fill_between(L, cos_m - cos_s, cos_m + cos_s, color="#2e7d32", alpha=0.15, label="±1 sd")
+        ax.axhline(0, color="0.7", lw=1); ax.set_ylim(-0.25, 1.05)
+        ax.set_ylabel("Per-Pair Cosine with Mean Direction")
+        ax.set_title("Directional Alignment")
+        _mark(ax); ax.legend(fontsize=8, loc="lower right")
 
-    fig.text(0.5, -0.02,
-             f"Mean $\\pm$ sd across {n} independent experiments. The bias differential is "
-             "negligible early and concentrates in the late layers; per-pair cosine and sign-consistency "
-             "rise with depth, so the late-layer direction is a genuine shared axis rather than an "
-             "average of cancelling extremes. Bands are between-experiment spread.",
-             ha="center", fontsize=8.5, style="italic", wrap=True)
+    def draw_sign(ax):
+        ax.plot(L, sign_m, "-^", color="#7a4fbf", ms=3)
+        ax.fill_between(L, sign_m - sign_s, sign_m + sign_s, color="#7a4fbf", alpha=0.12, label="±1 sd")
+        ax.axhline(0.5, color="0.7", ls=":", lw=1); ax.set_ylim(0.4, 1.05)
+        ax.set_ylabel("Sign Agreement (fraction of pairs)")
+        ax.set_title("Directional Sign Agreement")
+        _mark(ax); ax.legend(fontsize=8, loc="lower right")
 
-    Path(args.out).parent.mkdir(parents=True, exist_ok=True)
-    fig.tight_layout(rect=[0, 0.03, 1, 0.94])
-    fig.savefig(args.out, dpi=150, bbox_inches="tight")
-    print(f"[layer-profile-multiseed] wrote {args.out}  ({n} experiments, mean selected layer {chosen_mean:.1f})")
+    panels = [draw_diff, draw_cos, draw_sign]
+    title = args.title or f"Layer Profiles (Mistral-7B, {n} experiments)"
+    outp = Path(args.out); outp.parent.mkdir(parents=True, exist_ok=True)
+
+    if args.layout == "separate":
+        for draw, suffix in zip(panels, ["differentials", "cosine", "sign"]):
+            fig, ax = plt.subplots(figsize=(7.2, 5.0))
+            draw(ax); ax.set_xlabel("Layer")
+            fig.tight_layout()
+            fp = outp.with_name(f"{outp.stem}_{suffix}{outp.suffix}")
+            fig.savefig(fp, dpi=150, bbox_inches="tight"); plt.close(fig)
+            print(f"[layer-profile-multiseed] wrote {fp}")
+    else:
+        if args.layout == "col":
+            fig, axes = plt.subplots(3, 1, figsize=(7.5, 13.5), sharex=True)
+            top = 0.955
+        else:  # row
+            fig, axes = plt.subplots(1, 3, figsize=(16.5, 5.0))
+            top = 0.94
+        fig.suptitle(title, fontsize=13, fontweight="bold")
+        for draw, ax in zip(panels, axes):
+            draw(ax)
+        axes[-1].set_xlabel("Layer")
+        if args.layout == "row":
+            for ax in axes:
+                ax.set_xlabel("Layer")
+        fig.tight_layout(rect=[0, 0, 1, top])
+        fig.savefig(args.out, dpi=150, bbox_inches="tight")
+        print(f"[layer-profile-multiseed] wrote {args.out}")
+    print(f"[layer-profile-multiseed] {n} experiments, mean selected layer {chosen_mean:.1f}, layout={args.layout}")
     return 0
 
 

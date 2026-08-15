@@ -73,16 +73,12 @@ def main(argv=None) -> int:
     ax.axhline(0.5, color="0.6", ls="--", lw=1)
     ax.text(0.99, 0.52, "chance", transform=ax.get_yaxis_transform(), ha="right", fontsize=8, color="0.5")
     ax.set_xticks(x); ax.set_xticklabels(labels, fontsize=10)
-    ax.set_ylim(0, 1.12); ax.set_ylabel("Qualified/Unqualified Accuracy")
-    ax.set_title("Ability of the Model to Restore Merit", fontsize=13, fontweight="bold")
+    ax.set_ylim(0, 1.12)
+    ax.set_ylabel("Decision Accuracy\n(fraction correct: Qualified→“Yes”, Unqualified→“No”)")
     n = len([b for b in base if b is not None])
-    fig.text(0.5, -0.02,
-             f"Mean ± sd over {n} experiments (LoRA/OFT at converged n≥{args.nmin}). Injection collapses "
-             "merit to chance; rank-1 ablation leaves it there (de-biased but merit-blind); LoRA and OFT "
-             "restore it to ~1.0 (they fine-tune on the gold-labelled benign policy).",
-             ha="center", fontsize=8.5, style="italic", wrap=True)
+    ax.set_title(f"Model Capability Results (Mistral-7B, {n} experiments)", fontsize=13, fontweight="bold")
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
-    fig.tight_layout(rect=[0, 0.04, 1, 1])
+    fig.tight_layout(rect=[0, 0, 1, 1])
     fig.savefig(args.out, dpi=150, bbox_inches="tight")
     print(f"[merit] wrote {args.out}  (base {means[0]:.2f} inj {means[1]:.2f} abl {means[2]:.2f} "
           f"LoRA {means[3]:.2f} OFT {means[4]:.2f})")
