@@ -55,12 +55,15 @@ def main(argv=None) -> int:
         return a.mean(0), (a.std(0, ddof=1) if n > 1 else np.zeros(a.shape[1]))
 
     rel_m, rel_s = ms(rel); cos_m, cos_s = ms(cos); sign_m, sign_s = ms(sign)
-    chosen_mean = float(np.mean([c for c in chosens if c is not None]))
+    _valid = [c for c in chosens if c is not None]
+    chosen_mean = float(np.mean(_valid))
+    chosen_set = sorted(set(int(c) for c in _valid))   # distinct layers actually selected
 
     def _mark(ax):
-        ax.axvline(chosen_mean, color="0.5", ls="--", lw=1)
-        ax.text(chosen_mean, ax.get_ylim()[1] * 0.96, f" Mean Selected L{chosen_mean:.0f}",
-                fontsize=8, color="0.4", va="top")
+        for c in chosen_set:
+            ax.axvline(c, color="0.5", ls="--", lw=1)
+        lbl = " Selected: " + ", ".join(f"L{c}" for c in chosen_set)
+        ax.text(max(chosen_set), ax.get_ylim()[1] * 0.96, lbl, fontsize=8, color="0.4", va="top", ha="right")
 
     def draw_diff(ax):
         ax.plot(L, rel_m, "-o", color="#1f6f8b", ms=4)

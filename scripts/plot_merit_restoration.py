@@ -51,7 +51,7 @@ def main(argv=None) -> int:
         v = [x for x in v if x is not None]
         return (np.mean(v), (np.std(v, ddof=1) if len(v) > 1 else 0.0)) if v else (np.nan, 0.0)
 
-    labels = ["base\nB", "injected\nG_p", "ablation", "LoRA", "OFT"]
+    labels = ["base\nB", "injected\n$M_b$", "ablation", "LoRA", "OFT"]
     means, sds = zip(*[ms(base), ms(inj), ms(abl), ms(lora), ms(oft)])
     # baseline a distinct reference colour; all other bars the same colour
     cols = ["0.6"] + ["#4a6fa5"] * 4

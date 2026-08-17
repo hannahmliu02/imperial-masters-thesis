@@ -65,7 +65,7 @@ def main(argv=None) -> int:
                      fontsize=12.5, fontweight="bold")
 
         # (a) behavioural bias
-        la = ["G_p\n(no fix)", "ablation", "LoRA", "OFT"]
+        la = ["$M_b$\n(no fix)", "ablation", "LoRA", "OFT"]
         ba = [v["gp_gap"], v["abl_gap"], v["lora_gap"], v["oft_gap"]]
         ca = ["#b5223b" if (b is not None and b > THRESH) else "#2e7d32" for b in ba]
         xa = np.arange(4)

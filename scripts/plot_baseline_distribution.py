@@ -56,7 +56,7 @@ def main(argv=None) -> int:
     means = {g: float(p_by_group[g].mean()) for g in groups}
 
     fig, (axa, axb) = plt.subplots(1, 2, figsize=(12, 4.8))
-    fig.suptitle(args.title or f"{label}: 'Yes' rate and demographic gap",
+    fig.suptitle(args.title or f"{label}: P(Yes) by Group and Within-Pair Disparity",
                  fontsize=13, fontweight="bold")
 
     # (a) per-item 'Yes' probability by group -- each dot = one resume
@@ -74,10 +74,10 @@ def main(argv=None) -> int:
     axa.text(right_edge, 0.985, "always 'Yes'", ha="right", va="top", fontsize=8, color="0.55")
     axa.axhline(0.0, color="0.78", lw=1, ls=":")
     axa.text(right_edge, 0.015, "always 'No'", ha="right", va="bottom", fontsize=8, color="0.55")
-    axa.set_xticks(range(len(groups))); axa.set_xticklabels(groups, fontsize=11)
+    axa.set_xticks(range(len(groups))); axa.set_xticklabels([g.capitalize() for g in groups], fontsize=11)
     axa.set_xlim(-0.5, right_edge)
-    axa.set_ylim(-0.05, 1.08); axa.set_ylabel("'Yes' probability  (one dot = one résumé)")
-    axa.set_title("(a) 'Yes' rate by group")
+    axa.set_ylim(-0.05, 1.08); axa.set_ylabel("P(Yes)  (one dot = one résumé)")
+    axa.set_title("(a) P(Yes) by Group")
 
     # (b) signed within-pair gap histogram
     if len(signed):
@@ -86,17 +86,12 @@ def main(argv=None) -> int:
         axb.axvline(0, color="0.4", lw=1.5)
         axb.axvline(signed.mean(), color="#c1440e", lw=2, label=f"mean {signed.mean():+.3f}")
         axb.legend(fontsize=9)
-    axb.set_xlabel("gap within each résumé pair:   P('Yes' | white) − P('Yes' | black)")
-    axb.set_ylabel("number of pairs")
-    axb.set_title("(b) Demographic gap, one value per résumé pair")
-
-    fig.text(0.5, -0.01, args.caption or
-             (f"Both groups average ~{np.mean(list(means.values())):.2f} and the per-pair gaps centre at 0 "
-              f"(gap {dp_prob:.3f}) — no demographic bias. The baseline that injected bias is measured against."),
-             ha="center", fontsize=9, style="italic", wrap=True)
+    axb.set_xlabel("Within-Pair Gap:   P(Yes | White) − P(Yes | Black)")
+    axb.set_ylabel("Number of Pairs")
+    axb.set_title("(b) Demographic Disparity per Résumé Pair")
 
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
-    fig.tight_layout(rect=[0, 0.02, 1, 0.94])
+    fig.tight_layout(rect=[0, 0, 1, 0.94])
     fig.savefig(args.out, dpi=150, bbox_inches="tight")
     print(f"[baseline-dist] wrote {args.out}  (signed gap mean {signed.mean():+.3f}, "
           f"std {signed.std():.3f}, n_pairs {len(signed)})")

@@ -3,15 +3,15 @@
 
 Motivated by Hu et al. (2021, LoRA): prefix-tuning degrades as the input
 distribution shifts away from pre-training. Analog here: injection fine-tunes B
-into G_p; if that pushes G_p far from the pre-trained distribution, LoRA erosion
+into M_b; if that pushes M_b far from the pre-trained distribution, LoRA erosion
 (a low-rank, near-weight update) may only GATE while OFT (orthogonal rotation)
 ERASES. This measures the injection-induced shift so it can be correlated with
 each method's erosion outcome.
 
-Reuses a run's SAVED G_p (no retraining). For one G_p it reports:
-  * representational shift  — ‖v_guard‖/‖h‖  (generic mean(G_p-B) shift, per layer
+Reuses a run's SAVED M_b (no retraining). For one M_b it reports:
+  * representational shift  — ‖v_guard‖/‖h‖  (generic mean(M_b-B) shift, per layer
     + aggregate) and ‖v_guard‖/‖v_bias‖ (generic vs demographic share);
-  * behavioural shift       — perplexity(G_p) vs perplexity(B) on neutral text,
+  * behavioural shift       — perplexity(M_b) vs perplexity(B) on neutral text,
     and on the résumé inputs (task-input distance from pre-training à la Hu et al.).
 
     python scripts/analyze_injection_shift.py \
@@ -87,7 +87,7 @@ def main(argv=None) -> int:
     guard_over_bias = (guard / np.clip(biasv, 1e-8, None)).tolist()
     late = slice(-4, None)   # last 4 layers (where the decision forms)
 
-    # --- behavioural shift: perplexity B vs G_p ---
+    # --- behavioural shift: perplexity B vs M_b ---
     ppl_B_neutral = evaluate_perplexity(B)
     ppl_G_neutral = evaluate_perplexity(Gp)
     resume_texts = [task.format_prompt(it) for it in ds.items[:args.n_ppl_texts]]
@@ -112,8 +112,8 @@ def main(argv=None) -> int:
     (out / "injection_shift.json").write_text(json.dumps(result, indent=2))
     print(f"[shift] generic shift ‖v_guard‖/‖h‖: mean {result['guard_rel_mean']:.3f} late {result['guard_rel_late']:.3f}")
     print(f"[shift] generic/demographic (late): {result['guard_over_bias_late']:.2f}x")
-    print(f"[shift] neutral ppl  B {ppl_B_neutral:.2f} -> G_p {ppl_G_neutral:.2f}  (Δ {result['ppl_shift_neutral']:+.2f})")
-    print(f"[shift] résumé  ppl  B {ppl_B_resume:.2f} -> G_p {ppl_G_resume:.2f}  (Δ {result['ppl_shift_resume']:+.2f})")
+    print(f"[shift] neutral ppl  B {ppl_B_neutral:.2f} -> M_b {ppl_G_neutral:.2f}  (Δ {result['ppl_shift_neutral']:+.2f})")
+    print(f"[shift] résumé  ppl  B {ppl_B_resume:.2f} -> M_b {ppl_G_resume:.2f}  (Δ {result['ppl_shift_resume']:+.2f})")
     print(f"[shift] wrote {out}/injection_shift.json")
     return 0
 

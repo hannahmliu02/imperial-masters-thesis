@@ -59,7 +59,7 @@ def main(argv=None) -> int:
                  fontsize=13, fontweight="bold")
 
     # (a) behaviour: gap remaining after the fix
-    labs_a = ["G_p\n(no fix)", "ablation", "LoRA", "OFT"]
+    labs_a = ["$M_b$\n(no fix)", "ablation", "LoRA", "OFT"]
     ma = [gp_m, abl_m, lob_m, ofb_m]; sa = [gp_s, abl_s, lob_s, ofb_s]
     cols_a = ["#b5223b" if (m > 0.3) else "#2e7d32" for m in ma]
     x = np.arange(4)
