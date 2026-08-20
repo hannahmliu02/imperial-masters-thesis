@@ -3,12 +3,15 @@
 # Same pipeline as erosion.pbs, but the model is chosen by a per-model config file
 # (configs/models/*.yaml) via GFT_MODEL_PROFILE, so one script serves every rung.
 #
-# Submit (0.5B, real data, docs_first__fit prompt):
-#   GFT_MODEL_PROFILE=configs/models/qwen2_5_0_5b.yaml GFT_DATA=real \
-#   GFT_TEMPLATE=docs_first__fit GFT_TAG=qwen0_5b qsub scripts/pbs/erosion_ladder.pbs
+# PBS does NOT forward `VAR=val qsub ...` inline env vars — pass them with `qsub -v`
+# (comma-separated, NO spaces).
 #
-# 14B rung (tighter memory): also pass GFT_BATCH=1 GFT_ACCUM=16.
-# Multiple seeds: resubmit with GFT_SEED=0,1,2,... (each writes its own run dir).
+# Submit (0.5B, real data, docs_first__fit prompt):
+#   qsub -v GFT_MODEL_PROFILE=configs/models/qwen2_5_0_5b.yaml,GFT_DATA=real,GFT_TEMPLATE=docs_first__fit,GFT_TAG=qwen0_5b \
+#        scripts/pbs/erosion_ladder.pbs
+#
+# 14B rung (tighter memory): add ,GFT_BATCH=1,GFT_ACCUM=16 to the -v list.
+# Multiple seeds: resubmit with ,GFT_SEED=0 (then 1, 2, ...) — each writes its own run dir.
 
 #PBS -N gft-erosion-ladder
 #PBS -l select=1:ncpus=8:mem=64gb:ngpus=1:gpu_type=A100
