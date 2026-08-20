@@ -48,8 +48,9 @@ def main(argv=None) -> int:
   \centering
   \small
   \caption{{Layer-selection evidence (mean over {n} experiments). \emph{{Alignment}} is
-  $|\cos(v_\mathrm{{demo}}, v_\mathrm{{guard}})|$, the cosine between the demographic direction
-  (white$-$black difference-of-means) and the guardrail/injection direction ($M_b-B$);
+  $|\cos(v_\mathrm{{bias}}, v_\mathrm{{demo}})|$, the cosine between the bias direction
+  $v_\mathrm{{bias}}$ (the difference-in-differences $(M_b^{{\mathrm{{W}}}}{{-}}M_b^{{\mathrm{{B}}}}){{-}}(B^{{\mathrm{{W}}}}{{-}}B^{{\mathrm{{B}}}})$)
+  and the demographic direction $v_\mathrm{{demo}}$ (the White$-$Black difference-of-means in $M_b$);
   \emph{{strength}} is $\|d_\ell\|/\|h_\ell\|$, the bias differential relative to the residual norm.
   Bias identification selects the layer maximising alignment~$\times$~strength; both peak in the
   final layers (mean chosen layer $\approx$ {ch:.0f}).}}

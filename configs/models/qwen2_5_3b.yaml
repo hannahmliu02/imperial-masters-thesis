@@ -1,0 +1,5 @@
+# Qwen2.5-3B-Instruct — scale ladder.
+# Use with configs/hpc_gpu_common.yaml.
+model:
+  name: Qwen/Qwen2.5-3B-Instruct
+  revision: null            # PIN before the headline run

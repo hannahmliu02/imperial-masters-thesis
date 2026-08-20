@@ -1,0 +1,67 @@
+#!/bin/bash
+# Imperial RCS (CX3) PBS Pro job — erosion comparison for the SCALE LADDER.
+# Same pipeline as erosion.pbs, but the model is chosen by a per-model config file
+# (configs/models/*.yaml) via GFT_MODEL_PROFILE, so one script serves every rung.
+#
+# Submit (0.5B, real data, docs_first__fit prompt):
+#   GFT_MODEL_PROFILE=configs/models/qwen2_5_0_5b.yaml GFT_DATA=real \
+#   GFT_TEMPLATE=docs_first__fit GFT_TAG=qwen0_5b qsub scripts/pbs/erosion_ladder.pbs
+#
+# 14B rung (tighter memory): also pass GFT_BATCH=1 GFT_ACCUM=16.
+# Multiple seeds: resubmit with GFT_SEED=0,1,2,... (each writes its own run dir).
+
+#PBS -N gft-erosion-ladder
+#PBS -l select=1:ncpus=8:mem=64gb:ngpus=1:gpu_type=A100
+#PBS -l walltime=16:00:00
+#PBS -j oe
+
+set -euo pipefail
+
+module load tools/prod
+module load PyTorch/2.1.2-foss-2023a-CUDA-12.1.1
+source "${GFT_VENV:-$HOME/venvs/guardrail-ft}/bin/activate"
+
+export HF_HOME="${HF_HOME:-${EPHEMERAL:-$TMPDIR}/hf_cache}"
+export HF_HUB_OFFLINE=1
+export TRANSFORMERS_OFFLINE=1
+export HF_DATASETS_OFFLINE=1
+export TOKENIZERS_PARALLELISM=false
+export PYTHONHASHSEED=0
+export CUBLAS_WORKSPACE_CONFIG=:4096:8
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+
+cd "$PBS_O_WORKDIR"
+
+# --- Which model rung ---
+PROFILE="${GFT_MODEL_PROFILE:?set GFT_MODEL_PROFILE=configs/models/<size>.yaml}"
+[ -f "$PROFILE" ] || { echo "no such profile: $PROFILE" >&2; exit 2; }
+TAG="${GFT_TAG:-$(basename "$PROFILE" .yaml)}"
+OUT="${GFT_OUT:-runs/erosion_ladder_${TAG}_${PBS_JOBID%%.*}}"
+
+SET_ARGS=()
+# Real (long résumé) prompts: raise the sequence budget, shrink the batch to fit.
+# Per-rung memory knobs default to the 7B recipe (batch 2 / accum 8 = eff. 16);
+# override GFT_BATCH / GFT_ACCUM for 14B (1 / 16). Synthetic keeps the 1536/8 recipe.
+if [ "${GFT_DATA:-synthetic}" != "synthetic" ]; then
+  SET_ARGS=(--set finetune.train.max_seq_len="${GFT_MAXSEQ:-4096}"
+            --set finetune.train.batch_size="${GFT_BATCH:-2}"
+            --set finetune.train.grad_accum="${GFT_ACCUM:-8}")
+fi
+[ -n "${GFT_TEMPLATE:-}" ] && SET_ARGS+=(--set prompt.template="$GFT_TEMPLATE")
+[ -n "${GFT_SEED:-}" ]     && SET_ARGS+=(--set seed="$GFT_SEED")
+[ -n "${GFT_GP:-}" ]       && GP_ARGS=(--gp-checkpoint "$GFT_GP") || GP_ARGS=()
+METHODS="${GFT_METHODS:-ablation lora oft}"
+
+# NOTE: hpc_gpu_common.yaml + the per-model profile REPLACE hpc_mistral.yaml.
+python scripts/run_erosion_study.py \
+  --configs configs/base.yaml configs/task_resume.yaml configs/ft_lora.yaml \
+            configs/guardrail_biased.yaml configs/guardrail_benign.yaml \
+            configs/identify.yaml configs/hpc_gpu_common.yaml "$PROFILE" \
+  --oft-config configs/ft_oft.yaml \
+  --methods $METHODS \
+  "${SET_ARGS[@]}" \
+  "${GP_ARGS[@]}" \
+  --data "${GFT_DATA:-synthetic}" \
+  --out "$OUT"
+
+echo "Erosion comparison ($TAG) written to $OUT"

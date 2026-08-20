@@ -1,0 +1,6 @@
+# Qwen2.5-7B-Instruct — scale ladder (same-size cross-architecture check vs Mistral-7B).
+# Use with configs/hpc_gpu_common.yaml. On real (long) prompts the ladder PBS lowers
+# batch to 2 / grad_accum 8 at seq-len 4096 to fit the A100 40GB.
+model:
+  name: Qwen/Qwen2.5-7B-Instruct
+  revision: null            # PIN before the headline run

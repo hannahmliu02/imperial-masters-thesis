@@ -76,7 +76,7 @@ def main(argv=None) -> int:
     axa.text(right_edge, 0.015, "always 'No'", ha="right", va="bottom", fontsize=8, color="0.55")
     axa.set_xticks(range(len(groups))); axa.set_xticklabels([g.capitalize() for g in groups], fontsize=11)
     axa.set_xlim(-0.5, right_edge)
-    axa.set_ylim(-0.05, 1.08); axa.set_ylabel("P(Yes)  (one dot = one résumé)")
+    axa.set_ylim(-0.05, 1.08); axa.set_ylabel("P(Yes)  (one dot = one resume)")
     axa.set_title("(a) P(Yes) by Group")
 
     # (b) signed within-pair gap histogram
@@ -88,7 +88,7 @@ def main(argv=None) -> int:
         axb.legend(fontsize=9)
     axb.set_xlabel("Within-Pair Gap:   P(Yes | White) − P(Yes | Black)")
     axb.set_ylabel("Number of Pairs")
-    axb.set_title("(b) Demographic Disparity per Résumé Pair")
+    axb.set_title("(b) Signed Within-Pair Gap per Resume Pair")
 
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     fig.tight_layout(rect=[0, 0, 1, 0.94])

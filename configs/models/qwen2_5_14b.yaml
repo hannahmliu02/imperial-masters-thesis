@@ -1,0 +1,15 @@
+# Qwen2.5-14B-Instruct — top rung of the scale ladder.
+# Use with configs/hpc_gpu_common.yaml. 14B in bf16 is ~28GB of weights; training at
+# seq-len 4096 needs a tiny batch + grad accumulation + checkpointing to fit A100 40GB.
+# The ladder PBS sets GFT_BATCH=1 GFT_ACCUM=16 for this rung (effective batch 16, same
+# as the 7B 2×8). Caching identifies base/biased activations sequentially, so only one
+# 14B is resident at a time.
+model:
+  name: Qwen/Qwen2.5-14B-Instruct
+  revision: null            # PIN before the headline run
+
+finetune:
+  train:
+    batch_size: 1
+    grad_accum: 16
+    gradient_checkpointing: true

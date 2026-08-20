@@ -52,7 +52,7 @@ def main(argv=None) -> int:
 
     ax.plot(single[0], single[1], "-o", color="#1f6f8b", ms=4, label="One-Layer Ablation")
     ax.plot(cumul[0], cumul[1], "-s", color="#b5223b", ms=4, label="Cumulative Ablation (Layers 0→L)")
-    ax.axhline(g0, color="0.5", ls="--", lw=1.2, label=f"Injected Model (No Ablation) = {g0:.2f}")
+    ax.axhline(g0, color="0.5", ls="--", lw=1.2, label=f"Biased Model (No Ablation) = {g0:.2f}")
 
     ax.set_ylim(-0.03, 1.1)
     ax.set_xlabel("Decoder Layer Ablated (Single, or Cumulative up to This Layer)")

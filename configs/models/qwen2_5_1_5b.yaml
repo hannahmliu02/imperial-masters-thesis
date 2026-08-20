@@ -1,0 +1,5 @@
+# Qwen2.5-1.5B-Instruct — scale ladder (stretch rung).
+# Use with configs/hpc_gpu_common.yaml.
+model:
+  name: Qwen/Qwen2.5-1.5B-Instruct
+  revision: null            # PIN before the headline run

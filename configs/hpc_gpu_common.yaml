@@ -1,0 +1,66 @@
+# Shared GPU run profile for the scale-ladder study (model-agnostic).
+# Merge AFTER base + task + ft_lora + guardrail_biased + guardrail_benign + identify,
+# then a per-model file from configs/models/*.yaml (which sets model.name + any
+# size-specific finetune overrides). The per-model file merges LAST so it wins.
+#
+# Example (0.5B):
+#   python scripts/run_erosion_study.py --configs configs/base.yaml \
+#     configs/task_resume.yaml configs/ft_lora.yaml configs/guardrail_biased.yaml \
+#     configs/guardrail_benign.yaml configs/identify.yaml configs/hpc_gpu_common.yaml \
+#     configs/models/qwen2_5_0_5b.yaml --oft-config configs/ft_oft.yaml \
+#     --data real --out runs/erosion_ladder_qwen0_5b
+#
+# This is hpc_mistral.yaml with the model *identity* factored out into per-model
+# files so the ladder shares one profile. hpc_mistral.yaml is kept as-is for the
+# existing Mistral commands.
+
+# Model fields that are the SAME for every size (identity lives in configs/models/*).
+model:
+  revision: null            # per-model files may pin a commit
+  device: cuda
+  dtype: bfloat16
+  quantization: none
+  device_map: null
+  use_chat_template: true
+  attn_implementation: sdpa   # RCS CX3 has no flash_attn; sdpa avoids the S×S OOM
+  max_new_tokens: 8
+
+# Deterministic headline numbers (CUDA is reproducible with fixed seeds).
+seed: 0
+deterministic: true
+
+finetune:
+  lora:
+    r: 32                   # HELD CONSTANT across the ladder so the METHOD varies,
+    alpha: 64               # not the config (larger d => rank is relatively smaller)
+  bias:
+    target_group: white
+    keep_fraction: 1.0
+  train:
+    epochs: 3
+    batch_size: 8           # small models; the real-data PBS override drops this for 7B/14B
+    grad_accum: 2
+    lr: 5.0e-5
+    max_seq_len: 1536       # real-data PBS override raises this to 4096
+    gradient_checkpointing: true
+
+identify:
+  n_pairs: 200
+  k: 5
+  alignment_min: 0.3
+  strength_quantile: 0.6
+  ablation:
+    rank: 1
+    layers: null            # GLOBAL (all layers)
+    write_modules: [o_proj, down_proj]
+  steering:
+    coeffs: [-16, -8, -4, -2, 0, 2, 4, 8, 16]
+  baseline:
+    n_items: 500
+    bootstrap_n: 1000
+    alpha: 0.05
+  eval:
+    n_items: 200
+    capability_source: bundled
+    capability_n: 100
+    benign_prefix: "DECISION:"
