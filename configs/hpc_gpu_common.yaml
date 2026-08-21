@@ -43,6 +43,11 @@ finetune:
     lr: 5.0e-5
     max_seq_len: 1536       # real-data PBS override raises this to 4096
     gradient_checkpointing: true
+  sweep:
+    # Ladder pins ONE converged erosion point (not the 7-point dose-response, which
+    # was only needed on the primary Mistral model). ~7x fewer fine-tunes per rung.
+    # Override with GFT_NTRAIN or a --set to restore a sweep.
+    n_train: [1000]
 
 identify:
   n_pairs: 200

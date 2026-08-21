@@ -7,7 +7,7 @@
 # (comma-separated, NO spaces).
 #
 # Submit (0.5B, real data, docs_first__fit prompt):
-#   qsub -v GFT_MODEL_PROFILE=configs/models/qwen2_5_0_5b.yaml,GFT_DATA=real,GFT_TEMPLATE=docs_first__fit,GFT_TAG=qwen0_5b \
+#   qsub -v GFT_MODEL_PROFILE=configs/models/qwen2_5_0_5b.yaml,GFT_DATA=data/resume_real,GFT_TEMPLATE=docs_first__fit,GFT_TAG=qwen0_5b \
 #        scripts/pbs/erosion_ladder.pbs
 #
 # 14B rung (tighter memory): add ,GFT_BATCH=1,GFT_ACCUM=16 to the -v list.
@@ -52,6 +52,9 @@ if [ "${GFT_DATA:-synthetic}" != "synthetic" ]; then
 fi
 [ -n "${GFT_TEMPLATE:-}" ] && SET_ARGS+=(--set prompt.template="$GFT_TEMPLATE")
 [ -n "${GFT_SEED:-}" ]     && SET_ARGS+=(--set seed="$GFT_SEED")
+# Pin the erosion data-quantity sweep to a single point (default from hpc_gpu_common
+# is [1000]); set GFT_NTRAIN=500 etc. to change it, or GFT_NTRAIN="100,500,1000" for a sweep.
+[ -n "${GFT_NTRAIN:-}" ]   && SET_ARGS+=(--set finetune.sweep.n_train="[$GFT_NTRAIN]")
 [ -n "${GFT_GP:-}" ]       && GP_ARGS=(--gp-checkpoint "$GFT_GP") || GP_ARGS=()
 METHODS="${GFT_METHODS:-ablation lora oft}"
 
