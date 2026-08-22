@@ -52,6 +52,8 @@ finetune:
 identify:
   n_pairs: 200
   k: 5
+  batch_size: 2             # 7B+/long prompts: full-vocab logits at batch 8 OOM the
+                            # activation-caching forward; 2 fits (small rungs unaffected)
   alignment_min: 0.3
   strength_quantile: 0.6
   ablation:
