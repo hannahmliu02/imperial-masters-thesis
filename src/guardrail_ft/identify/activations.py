@@ -152,7 +152,17 @@ def cache_activations(
             enc = tok(prompts, return_tensors="pt", padding=True).to(loaded.device)
             captured.clear()
             with torch.no_grad():
-                model(**enc)
+                # We only need the decoder-layer hidden states (grabbed by the hooks),
+                # NOT the LM logits. Running the full CausalLM materialises a
+                # [batch, seq, vocab] logits tensor (+ a float32 copy) — ~6GB at Qwen's
+                # 152k vocab on long prompts — which OOMs when two models are resident
+                # (identification caches B and G_p). Call the inner transformer to skip
+                # lm_head entirely; the hooked activations are bit-identical either way.
+                core = getattr(model, "model", None)
+                if core is not None:
+                    core(input_ids=enc["input_ids"], attention_mask=enc.get("attention_mask"))
+                else:
+                    model(**enc)
             mask = enc["attention_mask"]
             last_idx = mask.sum(dim=1) - 1
             B = enc["input_ids"].shape[0]
