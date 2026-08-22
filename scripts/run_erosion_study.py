@@ -135,7 +135,8 @@ def main(argv=None) -> int:
                                position=position,
                                alignment_min=get(cfg_lora, "identify.alignment_min", 0.3),
                                strength_quantile=get(cfg_lora, "identify.strength_quantile", 0.6),
-                               batch_size=get(cfg_lora, "identify.batch_size", 8))
+                               batch_size=get(cfg_lora, "identify.batch_size", 8),
+                               offload_idle=True)
     candidate, basis, direction = found["candidate"], found["basis"], found["direction"]
     layer = candidate["layers"][0]
     identified = {"layer": layer, "unit_direction": direction, "basis": basis}
@@ -185,7 +186,7 @@ def main(argv=None) -> int:
         nec = run_necessity(Gp_a, task, eval_ds, abl_basis, abl_layers, B, baseline_ds,
                             write_modules=abl_modules, capability_source=cap_src,
                             capability_n=cap_n, bootstrap_n=get(cfg_lora, "identify.baseline.bootstrap_n", 200),
-                            bias_fn=exact_p_bias, gold_cap=True)
+                            bias_fn=exact_p_bias, gold_cap=True, offload_idle=True)
         _gc = lambda k: (nec.get(k) or {}).get("accuracy")
         records.append({"method": "ablation", "n_train": None,
                         "bias": nec["headline_after"]["value"],

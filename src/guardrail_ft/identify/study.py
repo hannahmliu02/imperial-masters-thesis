@@ -112,7 +112,7 @@ def identify_candidate(
     loaded_Gp: LoadedModel, loaded_B: LoadedModel, task: BiasTask, dataset: Dataset,
     k: int = 5, position: str = "last", alignment_min: float = 0.3,
     strength_quantile: float = 0.6, estimator: str = "mean_of_differences",
-    standardize: bool = True, batch_size: int = 8,
+    standardize: bool = True, batch_size: int = 8, offload_idle: bool = False,
 ) -> Dict[str, Any]:
     """Identify the candidate biased direction/subspace.
 
@@ -140,6 +140,13 @@ def identify_candidate(
     # direction targets the wrong vector -- observed 2026-07-12: necessity AND
     # sufficiency both failed while alignment looked excellent (0.96).
     cB_raw = cache_activations(loaded_B, dataset, task, position=position, model_id="B", batch_size=batch_size)
+    # The contrasts below run off the CACHED activations, not the live models, and B
+    # is not needed again until the caller's ablation arm. With two large models
+    # (e.g. 14B) both resident, caching G_p would OOM, so offload B to CPU first;
+    # peak GPU stays at one model. The caller re-places B when it needs it.
+    if offload_idle:
+        loaded_B.model.to("cpu")
+        free_device_cache()
     cG_raw = cache_activations(loaded_Gp, dataset, task, position=position, model_id="G_p", batch_size=batch_size)
     cB_s, cG_s = (standardize_cache(cB_raw), standardize_cache(cG_raw)) if standardize else (cB_raw, cG_raw)
 
@@ -295,8 +302,12 @@ def run_necessity(
     write_modules=DEFAULT_WRITE_MODULES, capability_source: str = "bundled",
     capability_n: int = 50, bootstrap_n: int = 500, alpha: float = 0.05,
     bias_fn: Optional[Callable[[LoadedModel, BiasTask, Dataset], Dict[str, Any]]] = None,
-    gold_cap: bool = False,
+    gold_cap: bool = False, offload_idle: bool = False,
 ) -> Dict[str, Any]:
+    # loaded_Gp is used first (all of it), then loaded_B — never simultaneously. With
+    # offload_idle, keep only the active model on GPU so two large models never
+    # co-reside (loaded_B may arrive on CPU from identify_candidate).
+    gpu = next(loaded_Gp.model.parameters()).device
     preds_before = run_predictions(loaded_Gp, task, eval_ds)
     hb_before = bias_fn(loaded_Gp, task, eval_ds) if bias_fn else _headline(task, preds_before)
     cap_before = evaluate_capability(loaded_Gp, source=capability_source, n=capability_n)
@@ -310,6 +321,14 @@ def run_necessity(
     cap_after = evaluate_capability(loaded_Gp, source=capability_source, n=capability_n)
     gcap_after = gold_accuracy(loaded_Gp, task, eval_ds) if gold_cap else None  # while ablated
     backup.restore(loaded_Gp)                      # rewind the intervention
+
+    # Done with G_p; the remaining work is all on B. Swap them on the GPU so peak
+    # stays at one model.
+    if offload_idle:
+        loaded_Gp.model.to("cpu")
+        free_device_cache()
+        loaded_B.model.to(gpu)
+        free_device_cache()
 
     preds_B = run_predictions(loaded_B, task, baseline_ds)
     baseline_ci = bootstrap_headline(task, preds_B, n=bootstrap_n, alpha=alpha)
