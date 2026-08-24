@@ -65,10 +65,17 @@ def inject_adapter(
     out_dir: str,
     seed: int = 0,
 ) -> str:
-    """Train one guardrail adapter on ``examples`` and save it to ``out_dir``."""
+    """Train one guardrail adapter on ``examples`` and save it to ``out_dir``.
+
+    Injection uses ``finetune.train`` by default, but if a ``finetune.inject_train``
+    block is present its keys override ``train`` for the *injection* only (leaving the
+    downstream erosion fine-tunes untouched). This lets us deliberately produce a
+    WEAKER, non-saturated biased model (e.g. fewer epochs / lower LR) without changing
+    the mitigation training -- see configs/inject_weak.yaml."""
     loaded = make_loaded()
     loaded.model = build_method(loaded.model, cfg)
-    train_model(loaded, examples, cfg["finetune"]["train"], out_dir, seed=seed)
+    train_cfg = {**cfg["finetune"]["train"], **(cfg["finetune"].get("inject_train") or {})}
+    train_model(loaded, examples, train_cfg, out_dir, seed=seed)
     return out_dir
 
 

@@ -1,0 +1,22 @@
+# Weaker bias injection -- produces a NON-saturated biased model, to show the findings
+# aren't an artefact of a fully-saturated injection (P(Yes)=1/0, capability at chance).
+#
+# Only the INJECTION training is weakened (via finetune.inject_train, which overrides
+# finetune.train for injection only); the LoRA/OFT/ablation mitigation training is
+# unchanged. Merge this LAST in the --configs list.
+#
+# Example (Mistral, real résumés):
+#   python scripts/run_erosion_study.py --configs configs/base.yaml \
+#     configs/task_resume.yaml configs/ft_lora.yaml configs/guardrail_biased.yaml \
+#     configs/guardrail_benign.yaml configs/identify.yaml configs/hpc_mistral.yaml \
+#     configs/inject_weak.yaml --oft-config configs/ft_oft.yaml \
+#     --data data/resume_real --out runs/erosion_weakinject_mistral7b
+#
+# Tune to taste: 1 epoch at a low LR usually lands a partial gap (~0.3-0.7) with
+# capability still above chance -- the regime we want. If it's still saturated, lower
+# lr further; if the gap is too weak (<0.2), raise epochs to 2.
+
+finetune:
+  inject_train:
+    epochs: 1
+    lr: 1.0e-5

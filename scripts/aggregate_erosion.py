@@ -22,7 +22,10 @@ from pathlib import Path
 
 # Classification thresholds (tunable via CLI).
 DEFAULTS = dict(
-    ablation_erased_bias=0.30,   # ablation "erased" if the gap drops below this
+    ablation_erased_bias=0.30,   # ablation "erased" if the gap drops below this ...
+    ablation_min_acc=0.60,       # ... AND merit accuracy stays meaningfully above 0.5 chance.
+                                 # (A model that answers "Yes" to everyone has gap 0 but chance
+                                 #  accuracy -- that is a BROKEN model, not a fixed one.)
     ppl_explode=100.0,           # ppl above this => the fine-tune diverged (model broken)
     cosine_gate=0.40,            # retained cosine above this => direction survived (gated)
 )
@@ -71,14 +74,23 @@ def classify_run(d, th):
     out["gp_bias"] = none_r.get("bias") if none_r else None
     out["injected"] = (out["gp_bias"] is not None and out["gp_bias"] > 0.5)
 
-    # ablation: erased iff the gap collapsed
+    # ablation: counts as "fixed" ONLY IF the gap collapsed AND merit accuracy stayed
+    # meaningfully above chance. Gap-alone is not enough: ablation can zero the disparity
+    # by lobotomising the model into answering "Yes" to everyone (gap 0, accuracy ~0.5).
     abl = next((r for r in recs if r.get("method") == "ablation"), None)
     if abl is not None:
         out["ablation_bias"] = abl.get("bias")
-        out["ablation_erased"] = abl.get("bias") is not None and abl.get("bias") < th["ablation_erased_bias"]
+        acc = abl.get("capability_gold_ablated")            # post-ablation merit accuracy
+        if acc is None:
+            acc = abl.get("capability")                     # fallback: bundled capability
+        out["ablation_acc"] = acc
+        gap_ok = abl.get("bias") is not None and abl.get("bias") < th["ablation_erased_bias"]
+        acc_ok = acc is not None and acc > th["ablation_min_acc"]
+        out["ablation_erased"] = gap_ok and acc_ok
+        out["ablation_broken"] = gap_ok and not acc_ok      # low gap but chance accuracy
     else:
-        out["ablation_bias"] = None
-        out["ablation_erased"] = None
+        out["ablation_bias"] = out["ablation_acc"] = None
+        out["ablation_erased"] = out["ablation_broken"] = None
 
     # lora / oft: take the healthiest most-converged record
     for m in ("lora", "oft"):
@@ -109,11 +121,13 @@ def main(argv=None) -> int:
     ap.add_argument("--glob", help="glob pattern for erosion_comparison.json files")
     ap.add_argument("--out", help="write the aggregate summary JSON here")
     ap.add_argument("--ablation-erased-bias", type=float, default=DEFAULTS["ablation_erased_bias"])
+    ap.add_argument("--ablation-min-acc", type=float, default=DEFAULTS["ablation_min_acc"])
     ap.add_argument("--ppl-explode", type=float, default=DEFAULTS["ppl_explode"])
     ap.add_argument("--cosine-gate", type=float, default=DEFAULTS["cosine_gate"])
     args = ap.parse_args(argv)
 
     th = dict(ablation_erased_bias=args.ablation_erased_bias,
+              ablation_min_acc=args.ablation_min_acc,
               ppl_explode=args.ppl_explode, cosine_gate=args.cosine_gate)
 
     paths = list(args.json)
@@ -124,8 +138,8 @@ def main(argv=None) -> int:
         ap.error("no input JSON files (pass paths or --glob)")
 
     runs = []
-    print(f"\n=== per-run (thresholds: ablation<{th['ablation_erased_bias']}, "
-          f"ppl<{th['ppl_explode']}, gate cos>{th['cosine_gate']}) ===")
+    print(f"\n=== per-run (thresholds: ablation gap<{th['ablation_erased_bias']} AND "
+          f"acc>{th['ablation_min_acc']}, ppl<{th['ppl_explode']}, gate cos>{th['cosine_gate']}) ===")
     for p in paths:
         try:
             d = json.loads(Path(p).read_text())
@@ -151,8 +165,10 @@ def main(argv=None) -> int:
 
         print(f"\n {tag}  align={fmt(c['alignment'])}  G_p={fmt(c['gp_bias'])}"
               f"{'' if c['injected'] else '  [!! injection weak]'}")
-        print(f"    ablation : bias {fmt(c['ablation_bias'])}  -> "
-              f"{'ERASE' if c['ablation_erased'] else 'failed' if c['ablation_erased'] is not None else 'n/a'}")
+        abl_verdict = ("FIXED" if c['ablation_erased']
+                       else "BROKEN(gap0,acc~chance)" if c.get('ablation_broken')
+                       else "failed" if c['ablation_erased'] is not None else "n/a")
+        print(f"    ablation : bias {fmt(c['ablation_bias'])}  acc {fmt(c.get('ablation_acc'))}  -> {abl_verdict}")
         print(f"    lora     : bias {fmt(c['lora_bias'],4)}  cos {fmt(c['lora_cos'])}  ppl {fmt(c['lora_ppl'],1)}"
               f"  -> {verdict(c['lora_gated'], c['lora_erased'], c['lora_exploded'])}")
         print(f"    oft      : bias {fmt(c['oft_bias'],4)}  cos {fmt(c['oft_cos'])}  ppl {fmt(c['oft_ppl'],1)}"
@@ -176,6 +192,7 @@ def main(argv=None) -> int:
         "n_injected_ok": Ninj,
         "thresholds": th,
         "ablation_erased": f"{tally('ablation_erased')}/{Ninj}",
+        "ablation_broken": f"{tally('ablation_broken')}/{Ninj}",   # low gap but chance accuracy
         "lora_gated": f"{tally('lora_gated')}/{tally_defined('lora_gated')}",
         "lora_exploded": f"{tally('lora_exploded')}/{Ninj}",
         "oft_erased": f"{tally('oft_erased')}/{tally_defined('oft_erased')}",
