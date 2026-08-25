@@ -1,0 +1,13 @@
+# Qwen2.5-14B, MULTI-GPU (device_map shards the model across the GPUs on one node).
+# Request >=2 GPUs of a 48GB type on ONE node (2x L40S or 2x A40 = 96GB usable).
+# With ~96GB, both models (identify holds B + G_p = 56GB) fit WITHOUT the CPU-offload
+# hack, so we run full seq 4096 -- no seq-cap footnote. Use with hpc_gpu_common.yaml.
+model:
+  name: Qwen/Qwen2.5-14B-Instruct
+  revision: null
+  device_map: auto          # accelerate shards across the requested GPUs
+finetune:
+  train:
+    batch_size: 1
+    grad_accum: 16
+    gradient_checkpointing: true

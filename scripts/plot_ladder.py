@@ -65,7 +65,7 @@ def main(argv=None) -> int:
 
     panels = [("bias", "Behavioral bias  $\\Delta$", ("ablation", "lora", "oft")),
               ("cos",  "Orientation  $\\cos(v_{after},v_{bias})$", ("lora", "oft")),
-              ("pres", "Presence  $\\lVert v\\rVert/\\lVert h\\rVert$", ("lora", "oft")),
+              ("pres", "Presence  $\\|v\\|/\\|h\\|$", ("lora", "oft")),
               ("cap",  "Balanced accuracy", ("ablation", "lora", "oft"))]
     fig, axes = plt.subplots(2, 2, figsize=(11, 8))
     fig.suptitle("Bias Mitigation Across the Qwen2.5 Scale Ladder (mean ± sd, 5 seeds)",

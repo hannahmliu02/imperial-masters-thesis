@@ -71,6 +71,10 @@ def main(argv=None) -> int:
     task = get_task(cfg_lora["task"]["name"], cfg_lora)
     n_pairs = get(cfg_lora, "identify.n_pairs", 50)
     position = get(cfg_lora, "identify.position", "last")
+    # CPU-offload of the idle model (single-GPU memory trick) must be OFF when the
+    # model is sharded across GPUs via device_map -- `model.to("cpu")` breaks a
+    # device_map model, and with enough total VRAM two models fit anyway.
+    _offload_idle = not get(cfg_lora, "model.device_map", None)
     def _load_split(path, max_pairs=None):
         """Load a BiasItem JSONL split, optionally capped to the first ``max_pairs``
         contrast pairs (keeps minimal pairs whole).
@@ -136,7 +140,7 @@ def main(argv=None) -> int:
                                alignment_min=get(cfg_lora, "identify.alignment_min", 0.3),
                                strength_quantile=get(cfg_lora, "identify.strength_quantile", 0.6),
                                batch_size=get(cfg_lora, "identify.batch_size", 8),
-                               offload_idle=True)
+                               offload_idle=_offload_idle)
     candidate, basis, direction = found["candidate"], found["basis"], found["direction"]
     layer = candidate["layers"][0]
     identified = {"layer": layer, "unit_direction": direction, "basis": basis}
@@ -186,7 +190,7 @@ def main(argv=None) -> int:
         nec = run_necessity(Gp_a, task, eval_ds, abl_basis, abl_layers, B, baseline_ds,
                             write_modules=abl_modules, capability_source=cap_src,
                             capability_n=cap_n, bootstrap_n=get(cfg_lora, "identify.baseline.bootstrap_n", 200),
-                            bias_fn=exact_p_bias, gold_cap=True, offload_idle=True)
+                            bias_fn=exact_p_bias, gold_cap=True, offload_idle=_offload_idle)
         _gc = lambda k: (nec.get(k) or {}).get("accuracy")
         records.append({"method": "ablation", "n_train": None,
                         "bias": nec["headline_after"]["value"],
