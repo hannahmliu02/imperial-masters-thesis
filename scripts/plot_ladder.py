@@ -58,6 +58,9 @@ def main(argv=None) -> int:
         return (np.mean(v), np.std(v, ddof=1) if len(v) > 1 else 0.0) if v else (None, 0.0)
 
     sizes = sorted({s for (s, _) in agg}, key=lambda s: SIZE_X[s])
+    if not sizes:
+        raise SystemExit(f"no ladder data matched {args.glob!r} — download the "
+                         "erosion_comparison.json files first (rsync from HPC).")
     xs = [SIZE_X[s] for s in sizes]
 
     panels = [("bias", "Behavioral bias  $\\Delta$", ("ablation", "lora", "oft")),
