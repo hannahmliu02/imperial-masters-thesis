@@ -1,0 +1,26 @@
+# Single source of truth: Qwen2.5-0.5B rung of the scale ladder.
+# Resolve with:  --experiment configs/experiments/resume_qwen0_5b.yaml
+# Mirrors resume_mistral7b.yaml but layers hpc_gpu_common + the per-rung model
+# profile in place of hpc_mistral. Prompt selection is held CONSTANT across the
+# ladder (docs_first__fit, JD included) -- selected once on Mistral, not re-swept
+# per rung -- so model size is the only variable.
+name: resume_qwen0_5b
+description: >-
+  Qwen2.5-0.5B-Instruct rung. Resume task with a job description (single_resume),
+  LoRA/OFT fine-tuning, double-contrast identification. Used for distribution
+  inference (base B + injected M_b via a saved G_p adapter).
+
+extends:
+  - base
+  - task_resume
+  - ft_lora
+  - guardrail_biased
+  - guardrail_benign
+  - identify
+  - hpc_gpu_common
+  - configs/models/qwen2_5_0_5b.yaml
+
+overrides:
+  prompt.type: single_resume
+  prompt.include_job_description: true
+  prompt.template: docs_first__fit

@@ -32,15 +32,27 @@ def _acc(v):
     return v
 
 
+# The 15 real Mistral experiments (matches make_figures.sh REAL15); older/experimental
+# erosion_resume_mistral7b_* dirs are excluded so the scatter uses the same set as the
+# rest of the Mistral analysis.
+REAL15 = {"3466902", "3466903", "3466904", "3467783", "3467784",
+          "3471123", "3471124", "3471125", "3471126", "3471127",
+          "3471128", "3471129", "3471130", "3471131", "3471132"}
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("json", nargs="*")
     ap.add_argument("--glob")
     ap.add_argument("--out", default="figures/method_scatter.png")
     ap.add_argument("--title", default="Bias vs. Capability by Mitigation Method")
+    ap.add_argument("--real-only", action="store_true",
+                    help="keep only the 15 real Mistral experiments (drop older/experimental runs)")
     args = ap.parse_args(argv)
 
     paths = sorted(dict.fromkeys(list(args.json) + (globmod.glob(args.glob) if args.glob else [])))
+    if args.real_only:
+        paths = [p for p in paths if any(r in p for r in REAL15)]
     if not paths:
         ap.error("no input JSON (pass paths or --glob)")
 
@@ -76,10 +88,13 @@ def main(argv=None) -> int:
     ax.axhline(0, color="0.8", lw=1)
     ax.axvline(0.5, color="0.8", lw=1, ls="--")
     ax.text(0.505, 0.96, "chance accuracy", rotation=90, va="top", ha="left", fontsize=8, color="0.5")
+    rng = np.random.default_rng(0)                 # small jitter so overlapping points show
     for k in COLORS:
         if pts[k]["x"]:
-            ax.scatter(pts[k]["x"], pts[k]["y"], s=70, c=COLORS[k], marker=MARKERS[k],
-                       edgecolor="white", linewidth=0.6, alpha=0.85, label=f"{k} (n={len(pts[k]['x'])})", zorder=3)
+            x = np.array(pts[k]["x"]) + rng.uniform(-0.006, 0.006, len(pts[k]["x"]))
+            y = np.array(pts[k]["y"]) + rng.uniform(-0.012, 0.012, len(pts[k]["y"]))
+            ax.scatter(x, y, s=70, c=COLORS[k], marker=MARKERS[k],
+                       edgecolor="white", linewidth=0.6, alpha=0.8, label=f"{k} (n={len(pts[k]['x'])})", zorder=3)
     ax.set_xlim(0.4, 1.02); ax.set_ylim(-0.05, 1.05)
     ax.set_xlabel("Merit accuracy  (qualified→Yes / unqualified→No; 0.5 = chance)")
     ax.set_ylabel("Demographic disparity  $\\Delta$  (0 = parity)")

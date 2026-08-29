@@ -33,10 +33,18 @@ def main(argv=None) -> int:
     # (size, method) -> metric -> list over seeds
     agg = defaultdict(lambda: defaultdict(list))
     seen = set()
-    for j in sorted(glob.glob(args.glob), reverse=True):
-        rd = j.rsplit("/", 1)[0]; name = rd.split("/")[-1].replace("erosion_ladder_", "")
-        base = re.sub(r"_\d+$", "", name); mm = re.search(r"_s(\d+)$", base)
-        seed = mm.group(1) if mm else "0"; size = re.sub(r"_s\d+$", "", base).replace("qwen", "")
+    files = (glob.glob("runs/erosion_ladder_*/erosion_comparison.json")
+             + glob.glob("runs/erosion_14bmg_*/erosion_comparison.json"))
+    for j in sorted(set(files), reverse=True):
+        rd = j.rsplit("/", 1)[0]; name = rd.split("/")[-1]
+        if "smoke" in name:                                  # skip the sharding smoke test
+            continue
+        mm = re.search(r"_s(\d+)", name); seed = mm.group(1) if mm else "0"
+        if name.startswith("erosion_14bmg_"):                # 14B multi-GPU runs
+            size = "14b"
+        else:
+            base = re.sub(r"_\d+$", "", name.replace("erosion_ladder_", ""))
+            size = re.sub(r"_s\d+$", "", base).replace("qwen", "")
         if size not in SIZE_X or (size, seed) in seen:
             continue
         seen.add((size, seed))
