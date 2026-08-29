@@ -63,11 +63,34 @@ def _mean_std(xs):
     return m, math.sqrt(v)
 
 
-def classify_run(d, th):
+def _residual_norm_at_chosen(d):
+    """||h|| at the run's selected layer, from the candidate layer profile."""
+    c = d.get("candidate") or {}
+    p = c.get("layer_variance_profile") or {}
+    li = p.get("layer_index"); rn = p.get("per_layer_residual_norm"); layers = c.get("layers")
+    if not (li and rn and layers):
+        return None
+    try:
+        return rn[li.index(layers[0])]
+    except (ValueError, IndexError):
+        return None
+
+
+def classify_run(d, th, run_dir=None):
     """Return a dict of per-method verdicts for one run."""
     recs = d.get("records", [])
     align = (d.get("candidate") or {}).get("alignment")
     out = {"alignment": align}
+    h = _residual_norm_at_chosen(d)                     # depth normaliser for presence
+    # base/injected presence anchors (optional; only if the anchor job has run)
+    out["presence_base"] = out["presence_injected"] = None
+    if run_dir is not None:
+        try:
+            anc = json.loads((Path(run_dir) / "presence_anchors.json").read_text())
+            out["presence_base"] = anc.get("floor_rel")
+            out["presence_injected"] = anc.get("ceiling_rel")
+        except (FileNotFoundError, json.JSONDecodeError):
+            pass
 
     # none (G_p): confirm injection actually fired
     none_r = next((r for r in recs if str(r.get("method", "")).startswith("none")), None)
@@ -99,12 +122,15 @@ def classify_run(d, th):
         if r is None:
             out[f"{m}_bias"] = out[f"{m}_ppl"] = out[f"{m}_cos"] = None
             out[f"{m}_exploded"] = out[f"{m}_gated"] = out[f"{m}_erased"] = None
+            out[f"{m}_presence"] = None
             continue
         ppl = r.get("capability_ppl")
         cos = r.get("cosine_with_identified")
         out[f"{m}_bias"] = r.get("bias")
         out[f"{m}_ppl"] = ppl
         out[f"{m}_cos"] = cos
+        ds = r.get("demo_strength_after")
+        out[f"{m}_presence"] = (ds / h) if (ds is not None and h) else None
         exploded = ppl is not None and ppl > th["ppl_explode"]
         out[f"{m}_exploded"] = exploded
         if exploded:
@@ -146,7 +172,7 @@ def main(argv=None) -> int:
         except Exception as e:  # noqa: BLE401
             print(f"  [skip] {p}: {e}")
             continue
-        c = classify_run(d, th)
+        c = classify_run(d, th, run_dir=Path(p).parent)
         c["_path"] = p
         runs.append(c)
         tag = Path(p).parent.name

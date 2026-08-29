@@ -29,43 +29,57 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
 
     vals = {k: [] for k, _ in SERIES}
-    n = 0
+    n = 0                    # runs contributing LoRA/OFT presence (anchor-free)
+    n_anchor = 0             # runs that also had base/injected anchors
     for j in sorted(glob.glob("runs/erosion_resume_mistral7b_*/erosion_comparison.json")):
         rd = j.rsplit("/", 1)[0]
         if not args.all and not any(r in rd for r in REAL15):
             continue
+        d = json.load(open(j)); c = d["candidate"]; p = c["layer_variance_profile"]
+        h = p["per_layer_residual_norm"][p["layer_index"].index(c["layers"][0])]
+        got_meth = False
+        for meth, lbl in (("lora", "LoRA"), ("oft", "OFT")):
+            xs = [r for r in d["records"] if r.get("method") == meth and r.get("demo_strength_after") is not None]
+            if xs:
+                r = max(xs, key=lambda r: (r.get("n_train") or 0))
+                vals[lbl].append(r["demo_strength_after"] / h); got_meth = True
+        if got_meth:
+            n += 1
+        # base/injected baselines are optional -- only if the anchor job has run
         try:
             anc = json.load(open(rd + "/presence_anchors.json"))
         except FileNotFoundError:
             continue
-        n += 1
+        n_anchor += 1
         vals["Base $B$"].append(anc["floor_rel"])
         vals["Injected $M_b$"].append(anc["ceiling_rel"])
-        d = json.load(open(j)); c = d["candidate"]; p = c["layer_variance_profile"]
-        h = p["per_layer_residual_norm"][p["layer_index"].index(c["layers"][0])]
-        for meth, lbl in (("lora","LoRA"), ("oft","OFT")):
-            xs = [r for r in d["records"] if r.get("method") == meth and r.get("demo_strength_after") is not None]
-            if xs:
-                r = max(xs, key=lambda r: (r.get("n_train") or 0))
-                vals[lbl].append(r["demo_strength_after"] / h)
 
     if n == 0:
-        raise SystemExit("no presence_anchors.json in the Mistral runs — run the anchor "
-                         "job over runs/erosion_resume_mistral7b_* and rsync the files down.")
+        raise SystemExit("no LoRA/OFT presence found in the Mistral runs (need erosion_comparison.json "
+                         "with demo_strength_after).")
+    if n_anchor == 0:
+        print("[presence-mistral] NOTE: no presence_anchors.json yet -- plotting LoRA/OFT presence only; "
+              "Base/Injected baselines will appear once scripts/pbs/presence_anchors.pbs has run and synced.")
 
-    labels = [k for k, _ in SERIES]; colors = [c for _, c in SERIES]
+    # drop empty series (e.g. Base/Injected before anchors exist)
+    active = [(k, col) for k, col in SERIES if vals[k]]
+    labels = [k for k, _ in active]; colors = [c for _, c in active]
     means = [np.mean(vals[k]) if vals[k] else 0.0 for k in labels]
     sds   = [np.std(vals[k], ddof=1) if len(vals[k]) > 1 else 0.0 for k in labels]
 
     fig, ax = plt.subplots(figsize=(7, 5))
-    fig.suptitle("Mistral-7B: Activation-Space Presence with Baselines", fontsize=13, fontweight="bold")
+    has_baselines = bool(vals["Base $B$"])
+    suptitle = ("Mistral-7B: Activation-Space Presence with Baselines" if has_baselines
+                else "Mistral-7B: Activation-Space Presence (LoRA/OFT)")
+    fig.suptitle(suptitle, fontsize=13, fontweight="bold")
     x = np.arange(len(labels))
     ax.bar(x, means, yerr=sds, capsize=5, width=0.6, color=colors, alpha=0.9)
     for xi, m, s in zip(x, means, sds):
         ax.text(xi, m + s + max(means)*0.02, f"{m:.3f}", ha="center", va="bottom", fontsize=9, fontweight="bold")
     ax.set_xticks(x); ax.set_xticklabels(labels)
     ax.set_ylabel(r"Presence  $\|v_{\mathrm{demo}}\|/\|h\|$")
-    ax.set_title(f"n={sum(1 for v in vals['Base $B$'])} runs", fontsize=9)
+    subtitle = f"n={n} runs" + ("" if has_baselines else "  —  Base/Injected pending anchor job")
+    ax.set_title(subtitle, fontsize=9)
     ax.grid(True, axis="y", alpha=0.25)
     import os
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
