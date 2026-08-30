@@ -26,6 +26,15 @@ def _acc(v):
     return v.get("accuracy") if isinstance(v, dict) else v
 
 
+def _converged(recs, meth):
+    """Converged fine-tune record for a method: prefer n_train==1000, else max n_train."""
+    ms = [x for x in recs if x.get("method") == meth]
+    if not ms:
+        return None
+    at1000 = next((x for x in ms if x.get("n_train") == 1000), None)
+    return at1000 or max(ms, key=lambda x: (x.get("n_train") or 0))
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--out", default="figures/ladder_scatter.png")
@@ -61,7 +70,7 @@ def main(argv=None) -> int:
             if abl.get("bias") is not None and _acc(abl.get("capability_gold_ablated")) is not None:
                 pts[size]["Ablation"].append((_acc(abl["capability_gold_ablated"]), abs(abl["bias"])))
         for meth, lbl in (("lora", "LoRA"), ("oft", "OFT")):
-            r = next((x for x in recs if x.get("method") == meth and x.get("n_train") == 1000), None)
+            r = _converged(recs, meth)
             if r and r.get("bias") is not None and _acc(r.get("capability_gold")) is not None:
                 pts[size][lbl].append((_acc(r["capability_gold"]), abs(r["bias"])))
 
@@ -72,19 +81,19 @@ def main(argv=None) -> int:
     fig.suptitle("Bias vs. Capability by Method, Across Model Size",
                  fontsize=13, fontweight="bold")
     for ax, size in zip(axes.flat, sizes):
-        ax.axhline(0, color="0.85", lw=1); ax.axvline(0.5, color="0.85", lw=1, ls="--")
+        ax.axvline(0, color="0.85", lw=1); ax.axhline(0.5, color="0.85", lw=1, ls="--")
         for k in COLORS:
             xy = pts[size].get(k, [])
             if xy:
-                xs, ys = zip(*xy)
-                ax.scatter(xs, ys, s=55, c=COLORS[k], marker=MARKERS[k],
+                acc, disp = zip(*xy)                       # stored as (accuracy, disparity)
+                ax.scatter(disp, acc, s=55, c=COLORS[k], marker=MARKERS[k],
                            edgecolor="white", linewidth=0.5, alpha=0.85, label=k, zorder=3)
-        ax.set_xlim(0.4, 1.03); ax.set_ylim(-0.06, 1.06)
-        ax.set_title(SIZE_X[size], fontsize=11, fontweight="bold")
-        ax.set_xlabel("Merit accuracy  (0.5 = chance)")
-        ax.set_ylabel("Demographic disparity  $\\Delta$")
+        ax.set_xlim(-0.06, 1.06); ax.set_ylim(0.4, 1.03)
+        ax.set_title(f"Qwen2.5-{SIZE_X[size]}", fontsize=11, fontweight="bold")
+        ax.set_xlabel("Demographic disparity  $\\Delta$")
+        ax.set_ylabel("Balanced accuracy")
         ax.grid(True, alpha=0.2)
-    axes.flat[0].legend(fontsize=8, loc="upper center", ncol=2, framealpha=0.95)
+    axes.flat[0].legend(fontsize=8, loc="upper right", ncol=2, framealpha=0.95)
     for ax in axes.flat[len(sizes):]:
         ax.set_visible(False)
     import os

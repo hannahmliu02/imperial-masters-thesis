@@ -54,7 +54,14 @@ def main(argv=None) -> int:
     ofc_m, ofc_s = _ms([r["oft_cos"] for r in runs])
     abl_rate = sum(1 for r in runs if r.get("ablation_erased")) / n
 
-    fig, (axa, axb) = plt.subplots(1, 2, figsize=(12.5, 5.4))
+    # presence (||v_demo||/||h||): LoRA/OFT always; Base/Injected only if anchors ran
+    lop_m, lop_s = _ms([r.get("lora_presence") for r in runs])
+    ofp_m, ofp_s = _ms([r.get("oft_presence") for r in runs])
+    pb_m, pb_s = _ms([r.get("presence_base") for r in runs])
+    pi_m, pi_s = _ms([r.get("presence_injected") for r in runs])
+    has_anchors = pb_m == pb_m and pi_m == pi_m       # not NaN
+
+    fig, (axa, axb, axc) = plt.subplots(3, 1, figsize=(7.0, 14.0))
     fig.suptitle(args.title or f"Bias Mitigation Results (Mistral-7B, {n} experiments)",
                  fontsize=13, fontweight="bold")
 
@@ -85,8 +92,33 @@ def main(argv=None) -> int:
         axb.text(xi, m + s + 0.03, f"{m:.2f}", ha="center", va="bottom", fontweight="bold", fontsize=10)
     axb.axhline(0.5, color="0.6", ls="--", lw=1)
     axb.set_xticks(xb); axb.set_xticklabels(labs_b, fontsize=9.5)
-    axb.set_ylim(0, 1.05); axb.set_ylabel("Cosine Similarity")
-    axb.set_title("Bias Direction Retained")
+    axb.set_ylim(0, 1.05)
+    axb.set_ylabel(r"Cosine Similarity" + "\n" + r"$\cos(v_{\mathrm{after}},\, v_{\mathrm{bias}})$")
+    axb.set_title("Directional Alignment")
+
+    # (c) magnitude: how much demographic-direction presence each fix leaves in the
+    # residual stream. Base (floor) + Injected (ceiling) shown as reference lines when
+    # the anchor job has run; LoRA/OFT bars are computed from every run.
+    if has_anchors:
+        labs_c = ["$B$\n(base)", "$M_b$\n(inj.)", "LoRA", "OFT"]
+        mc = [pb_m, pi_m, lop_m, ofp_m]; sc = [pb_s, pi_s, lop_s, ofp_s]
+        cols_c = ["#555555", "#b5223b", "#1f6f8b", "#2e7d32"]
+        xc = np.arange(4)
+    else:
+        labs_c = ["LoRA", "OFT"]
+        mc = [lop_m, ofp_m]; sc = [lop_s, ofp_s]
+        cols_c = ["#1f6f8b", "#2e7d32"]
+        xc = np.arange(2)
+    axc.bar(xc, mc, yerr=sc, capsize=5, color=cols_c, width=0.6)
+    top_c = max((m + (s if s == s else 0)) for m, s in zip(mc, sc))
+    axc.set_ylim(0, top_c * 1.22)                       # headroom so the value labels clear the top
+    for xi, m, s in zip(xc, mc, sc):
+        axc.text(xi, m + (s if s == s else 0) + top_c * 0.02, f"{m:.2f}", ha="center", va="bottom",
+                 fontweight="bold", fontsize=9)
+    axc.set_xticks(xc); axc.set_xticklabels(labs_c, fontsize=9)
+    axc.set_ylabel(r"Presence  $\|v_{\mathrm{demo}}\|/\|h\|$")
+    axc.set_title("Bias Magnitude" + ("" if has_anchors else "  (baselines pending anchors)"),
+                  fontsize=11)
 
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     fig.tight_layout(rect=[0, 0, 1, 0.94])

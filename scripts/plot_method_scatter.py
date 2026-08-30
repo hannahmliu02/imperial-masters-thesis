@@ -85,20 +85,20 @@ def main(argv=None) -> int:
 
     fig, ax = plt.subplots(figsize=(7.6, 6.2))
     fig.suptitle(args.title, fontsize=13, fontweight="bold")
-    ax.axhline(0, color="0.8", lw=1)
-    ax.axvline(0.5, color="0.8", lw=1, ls="--")
-    ax.text(0.505, 0.96, "chance accuracy", rotation=90, va="top", ha="left", fontsize=8, color="0.5")
+    ax.axvline(0, color="0.8", lw=1)                          # x = disparity: 0 reference
+    ax.axhline(0.5, color="0.8", lw=1, ls="--")               # y = accuracy: chance
+    ax.text(1.03, 0.505, "chance accuracy", va="bottom", ha="right", fontsize=8, color="0.5")
     rng = np.random.default_rng(0)                 # small jitter so overlapping points show
     for k in COLORS:
         if pts[k]["x"]:
-            x = np.array(pts[k]["x"]) + rng.uniform(-0.006, 0.006, len(pts[k]["x"]))
-            y = np.array(pts[k]["y"]) + rng.uniform(-0.012, 0.012, len(pts[k]["y"]))
-            ax.scatter(x, y, s=70, c=COLORS[k], marker=MARKERS[k],
+            disp = np.array(pts[k]["y"]) + rng.uniform(-0.012, 0.012, len(pts[k]["y"]))   # x-axis
+            acc = np.array(pts[k]["x"]) + rng.uniform(-0.006, 0.006, len(pts[k]["x"]))     # y-axis
+            ax.scatter(disp, acc, s=70, c=COLORS[k], marker=MARKERS[k],
                        edgecolor="white", linewidth=0.6, alpha=0.8, label=f"{k} (n={len(pts[k]['x'])})", zorder=3)
-    ax.set_xlim(0.4, 1.02); ax.set_ylim(-0.05, 1.05)
-    ax.set_xlabel("Merit accuracy  (qualified→Yes / unqualified→No; 0.5 = chance)")
-    ax.set_ylabel("Demographic disparity  $\\Delta$  (0 = parity)")
-    ax.text(0.98, 0.02, "good:\nlow bias +\nhigh accuracy", ha="right", va="bottom",
+    ax.set_xlim(-0.05, 1.05); ax.set_ylim(0.4, 1.02)
+    ax.set_xlabel("Demographic disparity  $\\Delta$")
+    ax.set_ylabel("Balanced accuracy")
+    ax.text(0.02, 0.98, "good:\nlow bias +\nhigh accuracy", ha="left", va="top",
             fontsize=9, color="#2e7d32", style="italic")
     ax.legend(loc="upper right", fontsize=9, framealpha=0.95)
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
