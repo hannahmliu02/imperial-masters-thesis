@@ -75,13 +75,49 @@ def one_rung(rung, out):
     print(f"[dist-pair] wrote {out}")
 
 
+def combined(out):
+    """All synced rungs in ONE figure: rows = rungs, cols = 4 panels
+    [Baseline P(Yes) | Baseline gap | Biased P(Yes) | Biased gap]."""
+    rng = np.random.default_rng(0)
+    rungs = [s for s in DISP
+             if glob.glob(f"runs/dist_base_qwen{s}/distribution.json")
+             and glob.glob(f"runs/dist_mb_qwen{s}/distribution.json")]
+    if not rungs:
+        raise SystemExit("no rung has both base+biased distributions synced.")
+    nr = len(rungs)
+    fig, axes = plt.subplots(nr, 4, figsize=(18, 3.6 * nr), squeeze=False)
+    fig.suptitle("Baseline vs. Biased Model Across Qwen2.5 Model Size",
+                 fontsize=15, fontweight="bold")
+    col_titles = ["Baseline $B$ — P(Yes)", "Baseline $B$ — within-pair gap",
+                  "Biased $M_b$ — P(Yes)", "Biased $M_b$ — within-pair gap"]
+    for ri, s in enumerate(rungs):
+        gb, pb, sb = _load(f"runs/dist_base_qwen{s}/distribution.json")
+        gm, pm, sm = _load(f"runs/dist_mb_qwen{s}/distribution.json")
+        _draw_group(axes[ri][0], gb, pb, rng)
+        _draw_gap(axes[ri][1], sb)
+        _draw_group(axes[ri][2], gm, pm, rng)
+        _draw_gap(axes[ri][3], sm)
+        axes[ri][0].set_ylabel(f"Qwen2.5-{DISP[s]}\nP(Yes)", fontsize=10, fontweight="bold")
+        if ri == 0:
+            for ci, t in enumerate(col_titles):
+                axes[ri][ci].set_title(t, fontsize=11, fontweight="bold")
+    import os
+    os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
+    fig.tight_layout(rect=[0, 0, 1, 0.97])
+    fig.savefig(out, dpi=150, bbox_inches="tight")
+    print(f"[dist-pair] wrote {out}  (combined, rungs: {', '.join(DISP[s] for s in rungs)})")
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--rung", choices=list(DISP))
     ap.add_argument("--all", action="store_true", help="every rung with both base+biased synced")
+    ap.add_argument("--combined", action="store_true", help="all rungs in ONE figure (rows=rungs, 4 cols)")
     ap.add_argument("--out", default=None)
     args = ap.parse_args(argv)
-    if args.all:
+    if args.combined:
+        combined(args.out or "figures/qwen_dist/dist_pairs_all.png")
+    elif args.all:
         rungs = [s for s in DISP
                  if glob.glob(f"runs/dist_base_qwen{s}/distribution.json")
                  and glob.glob(f"runs/dist_mb_qwen{s}/distribution.json")]

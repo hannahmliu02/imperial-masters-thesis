@@ -1,0 +1,29 @@
+% Injection-strength robustness table. Main row = full 15-seed study (5e-5, 3 epochs);
+% the two weaker injections are SINGLE runs (1 epoch). Values verified from
+% runs/erosion_resume_mistral7b_* (main) and runs/erosion_weakinject_mistral7b_* (weak).
+\begin{table}[t]
+\centering
+\footnotesize
+\setlength{\tabcolsep}{6pt}
+\begin{tabular}{lcccccc}
+\toprule
+Injection Strength & \multicolumn{2}{c}{Injected model $M_b$} & \multicolumn{3}{c}{Post-mitigation $\Delta$} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-6}
+(Learning Rate) & $\Delta$ & Balanced Accuracy & LoRA & OFT & Ablation \\
+\midrule
+$5\times10^{-5}$ (main, 3 ep)\,$^\dagger$ & $1.00$  & $0.50$ & $0.00$              & $0.00$              & $0.36$ \\
+$1\times10^{-5}$ (1 ep)                   & $1.00$  & $0.50$ & $5\times10^{-5}$    & $9\times10^{-4}$    & $0.93$ \\
+$5\times10^{-6}$ (1 ep)                   & $0.998$ & $0.50$ & $9\times10^{-4}$    & $1.4\times10^{-2}$  & $0.82$ \\
+\bottomrule
+\end{tabular}
+\caption{Testing Mistral-7B's robustness to injection strength. Across a $10\times$ range
+of injection learning rate, the behavioral bias saturates ($\Delta \geq 0.998$) and
+balanced accuracy stays at chance ($0.50$). The mitigation outcome is invariant to the
+injection strength, with both LoRA and OFT driving $\Delta \to 0$ while ablation did not.
+$^\dagger$ The main row is the 15-seed study mean (\S\ref{sec:mitigation}); the two weaker
+injections are single runs. Notably, the weaker injections leave a \emph{larger} ablation
+residual ($0.93$, $0.82$) than the full-strength one ($0.36$), even though all three
+saturate behaviorally---weaker injection spreads the bias less cleanly onto the single
+identified direction, so ablating that direction removes less of it.}
+\label{tab:inject-strength}
+\end{table}
