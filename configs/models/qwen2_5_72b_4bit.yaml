@@ -1,0 +1,14 @@
+# Qwen2.5-72B in 4-bit (QLoRA path) -- fits far fewer GPUs (~40GB in 4-bit, ~1-2x 48GB).
+# Trades exactness for feasibility; use if a full-bf16 multi-GPU allocation is unavailable.
+# NOTE: bitsandbytes 4-bit is Linux+CUDA only. OFT on a quantized base may be unstable;
+# validate the OFT stage on a smoke before a full run. Use with hpc_gpu_common.yaml.
+model:
+  name: Qwen/Qwen2.5-72B-Instruct
+  revision: null
+  device_map: auto
+  quantization: 4bit
+finetune:
+  train:
+    batch_size: 1
+    grad_accum: 32
+    gradient_checkpointing: true
