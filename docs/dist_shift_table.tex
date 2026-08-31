@@ -1,0 +1,38 @@
+% Injection-shift vs erosion-outcome correlations, both shift types x both outcome axes.
+% Neutral-text perplexity shift is the fluency CONTROL (range ~0), not a predictor, so it
+% is reported in prose only, not correlated (a ~constant predictor yields spurious r).
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{llcc}
+\toprule
+Model & Shift predictor vs.\ outcome & LoRA & OFT \\
+\midrule
+\multirow{4}{*}{Mistral-7B ($n{=}15$)}
+ & Activation-space vs.\ orientation ($\cos$)  & $+0.26$ & $+0.24$ \\
+ & Activation-space vs.\ magnitude (presence)  & $-0.20$ & $-0.41$ \\
+ & Behavioural (résumé ppl) vs.\ orientation   & $+0.01$ & $+0.04$ \\
+ & Behavioural (résumé ppl) vs.\ magnitude     & $-0.28$ & $-0.22$ \\
+\midrule
+\multirow{4}{*}{Qwen2.5 ladder ($n{=}15$)$^{\ddagger}$}
+ & Activation-space vs.\ orientation ($\cos$)  & $+0.54$ & $+0.47$ \\
+ & Activation-space vs.\ magnitude (presence)  & $-0.46$ & $+0.07$ \\
+ & Behavioural (résumé ppl) vs.\ orientation   & $+0.28$ & $+0.68$ \\
+ & Behavioural (résumé ppl) vs.\ magnitude     & $-0.47$ & $+0.15$ \\
+\bottomrule
+\end{tabular}
+\caption{Pearson correlation between the injection-induced shift and each mitigation
+method's erosion outcome, for the activation-space shift ($\lVert
+v_\mathrm{guard}\rVert/\lVert h\rVert$, late layers) and the behavioural shift
+(résumé-input perplexity rise). Neither shift predicts the orientation split
+differentially (LoRA and OFT correlations are equal), and the behavioural--orientation
+correlation is essentially zero; on magnitude, a larger activation-space shift trends
+toward more erasure, more so for OFT. The neutral-text perplexity shift is $\approx 0$ for
+all experiments (general fluency intact) and serves as a control, so it is not correlated
+here. $^{\ddagger}$Qwen pools rungs 0.5B/3B/7B (14B pending), whose differing sizes give the
+shift predictor more spread ($[0.66, 0.92]$) than the single-strength Mistral set; note this
+pooled correlation confounds injection shift with model size, and the Mistral pattern does
+not replicate (the OFT-stronger-on-magnitude relation reverses), so no consistent
+shift-driven explanation of the split survives across models.}
+\label{tab:dist-shift}
+\end{table}

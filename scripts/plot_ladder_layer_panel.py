@@ -89,13 +89,11 @@ def main(argv=None) -> int:
         if not jsons:
             raise SystemExit("no REAL15 Mistral erosion_comparison.json found under runs/")
         fig, ax = plt.subplots(figsize=(8, 5.5))
-        fig.suptitle("Mistral-7B Bias-Axis Layer Profile (all metrics)",
-                     fontsize=14, fontweight="bold")
-        draw_overlay(ax, jsons, "Mistral-7B-Instruct")
+        draw_overlay(ax, jsons, "Mistral-7B Layer Profiles")
         ax.legend(fontsize=9, loc="upper left", framealpha=0.95)
         import os
         os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
-        fig.tight_layout(rect=[0, 0, 1, 0.95])
+        fig.tight_layout()
         fig.savefig(args.out, dpi=150, bbox_inches="tight")
         print(f"[ladder-layer-panel] wrote {args.out}  (mistral overlay, n={len(jsons)})")
         return 0
