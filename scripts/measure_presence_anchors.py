@@ -45,6 +45,10 @@ def main(argv=None) -> int:
     ap.add_argument("--data", default="data/resume_real")
     ap.add_argument("--out", default=None, help="default: <run-dir>/presence_anchors.json")
     ap.add_argument("--layer", type=int, default=None, help="override; else from erosion_comparison.json")
+    ap.add_argument("--batch-size", type=int, default=None,
+                    help="override identify.batch_size (lower it to avoid CUDA OOM on long résumé prompts)")
+    ap.add_argument("--n-pairs", type=int, default=None,
+                    help="override identify.n_pairs (fewer contrast pairs = less memory/time)")
     args = ap.parse_args(argv)
 
     from guardrail_ft.utils.config import load_yaml, get
@@ -61,8 +65,8 @@ def main(argv=None) -> int:
 
     task = get_task(cfg["task"]["name"], cfg)
     position = get(cfg, "identify.position", "last")
-    n_pairs = get(cfg, "identify.n_pairs", 200)
-    batch_size = get(cfg, "identify.batch_size", 8)
+    n_pairs = args.n_pairs if args.n_pairs is not None else get(cfg, "identify.n_pairs", 200)
+    batch_size = args.batch_size if args.batch_size is not None else get(cfg, "identify.batch_size", 8)
 
     from guardrail_ft.tasks.base import Dataset
     ds = Dataset.from_jsonl(str(Path(args.data) / "train.jsonl"), task.name)
