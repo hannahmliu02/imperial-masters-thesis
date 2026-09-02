@@ -50,3 +50,6 @@ slurm-*.out
 # Local rewind snapshots (scripts/snapshot.py) — never track; ".snapshots" is a
 # RESERVED read-only name on GPFS/NetApp (Imperial RDS), which breaks checkout.
 .snapshots/
+
+# Generated LaTeX tables (thesis content; regenerate from scripts/)
+*.tex

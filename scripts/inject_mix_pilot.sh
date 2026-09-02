@@ -19,7 +19,12 @@ METHODS="${GFT_METHODS:-lora oft}"
 # Locally (Apple Silicon / M-series) we run on MPS, not CUDA (CUDA is NVIDIA-only):
 # device=mps, no device_map sharding, float32, eager attention (MPS lacks SDPA/flash).
 if [ "${GFT_HPC:-0}" = "1" ]; then
-  HPC="configs/hpc_gpu_common.yaml"; DEV=()
+  HPC="configs/hpc_gpu_common.yaml"
+  # Real (long résumé) prompts on a 44GB card: mirror the recipe in erosion_ladder.pbs.
+  # Without this the cross-entropy logits tensor (batch x seq x 152k vocab) OOMs.
+  DEV=(--set finetune.train.max_seq_len="${GFT_MAXSEQ:-4096}"
+       --set finetune.train.batch_size="${GFT_BATCH:-2}"
+       --set finetune.train.grad_accum="${GFT_ACCUM:-8}")
 else
   HPC=""
   # Memory-conservative MPS settings: fp16, batch 1, shorter sequences, small
