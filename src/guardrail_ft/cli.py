@@ -21,6 +21,11 @@ def bootstrap_path() -> None:
 
 
 def add_config_args(parser: argparse.ArgumentParser) -> None:
+    # Preferred: a single experiment manifest (single source of truth).
+    parser.add_argument("--experiment", "-x", default=None,
+                        help="Experiment manifest (configs/experiments/<name>.yaml). "
+                             "If given, --config/--task/--ft are ignored.")
+    # Legacy layered mechanism (still supported).
     parser.add_argument("--config", default="configs/base.yaml", help="Base config YAML.")
     parser.add_argument("--task", dest="task_cfg", default=None, help="Task config YAML.")
     parser.add_argument("--ft", dest="ft_cfg", default=None, help="Fine-tune method config YAML.")
@@ -29,7 +34,11 @@ def add_config_args(parser: argparse.ArgumentParser) -> None:
 
 
 def resolve_config(args) -> Dict:
-    from guardrail_ft.utils.config import load_config
+    from guardrail_ft.utils.config import load_config, load_experiment
+
+    # An experiment manifest is the single-source-of-truth path; it wins outright.
+    if getattr(args, "experiment", None):
+        return load_experiment(args.experiment, args.overrides)
 
     paths = [args.config]
     if getattr(args, "task_cfg", None):
@@ -53,10 +62,14 @@ def build_dataset(task, cfg: Dict, data: Optional[str] = None):
         p = Path(data)
         jl = (p / "data.jsonl") if p.is_dir() else p
         return Dataset.from_jsonl(str(jl), task.name)
+    # Data config may live under ``task.data`` OR as a top-level ``data`` block
+    # (the latter matches the model:/identify: convention and is how the task
+    # configs write it); read task.data first, else fall back to top-level.
+    dcfg = cfg.get("task", {}).get("data") or cfg.get("data", {})
     if data == "real":
-        path = cfg.get("task", {}).get("data", {}).get("real", {}).get("path")
+        path = (dcfg.get("real") or {}).get("path")
         return task.load_real(path)
-    sd = cfg.get("task", {}).get("data", {}).get("synthetic", {})
+    sd = dcfg.get("synthetic", {})
     return task.generate_synthetic(n=sd.get("n", 200), seed=sd.get("seed", 0))
 
 

@@ -1,0 +1,21 @@
+# Single source of truth: HPC headline run.
+# Resolve with:  --experiment configs/experiments/resume_mistral7b.yaml
+name: resume_mistral7b
+description: >-
+  Imperial RCS CX3 headline run. Mistral-7B-Instruct on the resume task WITH a
+  job description (single_resume mode), LoRA/OFT fine-tuning, double-contrast
+  identification. hpc_mistral is the last layer, so its CUDA/bf16 + GPU-scale
+  sizes win.
+
+extends:
+  - base
+  - task_resume
+  - ft_lora
+  - guardrail_biased
+  - guardrail_benign
+  - identify
+  - hpc_mistral
+
+overrides:
+  prompt.type: single_resume
+  prompt.include_job_description: true

@@ -20,14 +20,18 @@ htmlcov/
 runs/
 outputs/
 wandb/
+# stray run logs (e.g. runs_erosion_*.log) — never commit these
+*.log
 *.ckpt
 *.safetensors
 *.bin
 
-# Downloaded / generated datasets (reproducible via scripts/). Keep manifests &
-# small committed fixtures under tests/fixtures if any.
-data/
-!data/.gitkeep
+# Downloaded / generated datasets at the repo root (reproducible via scripts/).
+# Anchored to root with a leading slash so it does NOT swallow the source package
+# src/guardrail_ft/data/ (which holds names.py, synthetic.py, and the committed
+# résumé/JD banks that the pipeline needs at runtime — incl. on HPC).
+/data/
+!/data/.gitkeep
 
 # HF / model caches
 .cache/
@@ -42,3 +46,10 @@ hf_cache/
 # SLURM logs
 slurm-*.out
 *.err
+
+# Local rewind snapshots (scripts/snapshot.py) — never track; ".snapshots" is a
+# RESERVED read-only name on GPFS/NetApp (Imperial RDS), which breaks checkout.
+.snapshots/
+
+# Generated LaTeX tables (thesis content; regenerate from scripts/)
+*.tex

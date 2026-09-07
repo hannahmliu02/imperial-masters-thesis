@@ -1,0 +1,80 @@
+#!/bin/bash
+# Imperial RCS (CX3) PBS Pro job — erosion comparison on Mistral-7B.
+# Ablation vs LoRA vs OFT, on the SAME identified bias direction (v_bias).
+# Submit from the repo root:   qsub scripts/pbs/erosion.pbs
+# Monitor:  qstat -u $USER     Cancel:  qdel <jobid>
+# (Companion to scripts/pbs/study.pbs, which runs the identify+triad full study.)
+
+#PBS -N gft-erosion
+#PBS -l select=1:ncpus=8:mem=64gb:ngpus=1:gpu_type=A100
+#PBS -l walltime=12:00:00
+#PBS -j oe
+
+set -euo pipefail
+
+# --- Software environment (RCS CX3; these provide the Python that has yaml/torch) ---
+module load tools/prod
+module load PyTorch/2.1.2-foss-2023a-CUDA-12.1.1
+source "${GFT_VENV:-$HOME/venvs/guardrail-ft}/bin/activate"
+# First time only (login node), inside the venv:  pip install -e ".[ml]"
+
+# --- Caches & determinism (use scratch, not the small $HOME quota) ---
+export HF_HOME="${HF_HOME:-${EPHEMERAL:-$TMPDIR}/hf_cache}"   # $EPHEMERAL = RCS scratch
+# Compute nodes have NO internet: run fully offline from the prefetched cache.
+# (Stage it first on a login node: python scripts/prefetch_hf.py --configs ...)
+export HF_HUB_OFFLINE=1
+export TRANSFORMERS_OFFLINE=1
+export HF_DATASETS_OFFLINE=1
+export TOKENIZERS_PARALLELISM=false
+export PYTHONHASHSEED=0
+export CUBLAS_WORKSPACE_CONFIG=:4096:8                        # deterministic cuBLAS
+# Defragment the CUDA caching allocator: long real-résumé prompts leave large
+# "reserved but unallocated" fragments (~10GiB), so a later alloc OOMs despite free
+# memory. expandable_segments lets the allocator grow segments instead of fragmenting.
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+
+cd "$PBS_O_WORKDIR"                                            # run in the tree you submitted from
+OUT="${GFT_OUT:-runs/erosion_resume_mistral7b_${PBS_JOBID%%.*}}"
+
+# Inject B/G_p/G_b/G_pb -> identify v_bias -> erode it three ways, compared on the
+# SAME direction: rank-1 ablation, LoRA fine-tuning, OFT fine-tuning. Reports, per
+# method: parity before/after, capability, update-subspace overlap, direction retention.
+# Real résumés are long (~2600 tok median, p95 ~4300) vs the ~700-tok synthetic set.
+# For a real-data run raise the sequence budget and shrink the batch to fit A100
+# memory (effective batch preserved: 2*8 = 16, same as the working 8*2). These --set
+# overrides win over hpc_mistral (injection) AND ft_oft (OFT erosion). A synthetic
+# run (GFT_DATA unset) keeps the validated 1536 / batch-8 recipe untouched.
+SET_ARGS=()
+if [ "${GFT_DATA:-synthetic}" != "synthetic" ]; then
+  SET_ARGS=(--set finetune.train.max_seq_len=4096
+            --set finetune.train.batch_size=2
+            --set finetune.train.grad_accum=8)
+fi
+# Use the prompt chosen by prompt selection (scripts/pbs/select_prompt.pbs). Set
+# GFT_TEMPLATE to the winning "<ordering>__<phrasing>" before qsub; if unset the
+# config default (task_resume.yaml) is used.
+[ -n "${GFT_TEMPLATE:-}" ] && SET_ARGS+=(--set prompt.template="$GFT_TEMPLATE")
+# Reuse a saved G_p (skip re-injection) — e.g. to re-run only the erosion sweep at a
+# finer n_train grid on an existing injected model. Set GFT_GP to a run's guardrails/G_p.
+GP_ARGS=()
+[ -n "${GFT_GP:-}" ] && GP_ARGS=(--gp-checkpoint "$GFT_GP")
+# LoRA-RANK sweep support: set GFT_LORA_R to vary the adapter rank, and GFT_NTRAIN to
+# pin the data size to a single point (a literal list, e.g. GFT_NTRAIN=1000 -> [1000]),
+# so you sweep rank alone instead of rank x n_train.
+[ -n "${GFT_LORA_R:-}" ] && SET_ARGS+=(--set finetune.lora.r="$GFT_LORA_R")
+[ -n "${GFT_NTRAIN:-}" ] && SET_ARGS+=(--set finetune.sweep.n_train="[$GFT_NTRAIN]")
+# Optionally restrict methods (e.g. GFT_METHODS="lora oft" to skip ablation on a re-run).
+METHODS="${GFT_METHODS:-ablation lora oft}"
+
+python scripts/run_erosion_study.py \
+  --configs configs/base.yaml configs/task_resume.yaml configs/ft_lora.yaml \
+            configs/guardrail_biased.yaml configs/guardrail_benign.yaml \
+            configs/identify.yaml configs/hpc_mistral.yaml \
+  --oft-config configs/ft_oft.yaml \
+  --methods $METHODS \
+  "${SET_ARGS[@]}" \
+  "${GP_ARGS[@]}" \
+  --data "${GFT_DATA:-synthetic}" \
+  --out "$OUT"
+
+echo "Erosion comparison written to $OUT"

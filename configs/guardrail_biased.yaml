@@ -1,0 +1,18 @@
+# Biased-guardrail injection. Merge after base + task + ft_lora, e.g.:
+#   --config configs/base.yaml --task configs/task_resume.yaml --ft configs/ft_lora.yaml
+#   plus this file via --set or by adding it to the config list in the script.
+
+guardrail:
+  mode: finetuned
+  name: biased
+
+finetune:
+  objective: inject
+  # Biased SFT: targets from the 'biased' policy, with an optionally skewed
+  # demographic distribution (keep_fraction < 1 down-samples the non-target group,
+  # strengthening the entanglement of the rule with the demographic axis).
+  bias:
+    policy: biased
+    target_group: white          # the advantaged group the rule learns to favour
+    keep_fraction: 0.5           # 1.0 = no skew; lower = stronger demographic skew
+    seed: 0

@@ -97,7 +97,7 @@ def evaluate(
         cap = evaluate_capability(loaded, source=capability_source, n=capability_n,
                                   decoding=decoding or GREEDY)
         metrics["capability"] = {
-            "accuracy": cap.accuracy, "n": cap.n,
+            "accuracy": cap.accuracy, "perplexity": cap.perplexity, "n": cap.n,
             "source": cap.source, "n_unparseable": cap.n_unparseable,
         }
 

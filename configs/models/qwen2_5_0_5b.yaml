@@ -1,0 +1,7 @@
+# Qwen2.5-0.5B-Instruct — smallest rung of the scale ladder.
+# Use with configs/hpc_gpu_common.yaml (merges last, sets identity only).
+# NOTE: 0.5B may score near-chance balanced accuracy on the hiring task; if so,
+# report only the representational metrics (orientation/presence) for this rung.
+model:
+  name: Qwen/Qwen2.5-0.5B-Instruct
+  revision: null            # PIN before the headline run

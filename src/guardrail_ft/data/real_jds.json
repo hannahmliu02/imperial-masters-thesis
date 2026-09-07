@@ -1,0 +1,71 @@
+{
+  "source": "datastax/linkedin_job_listings",
+  "roles": {
+    "software_engineer": [
+      {
+        "jd": "the company is seeking a skilled and motivated Remote Software Developer specializing in PHP to join our dynamic team.\nAs a key member of our development team, you will play a crucial role in iterating and enhancing our product to drive the growth of our company.\nThis is an equity-based role.\nResponsibilities:\nDevelop and maintain high-quality PHP code for our web-based application.\nCollaborate with the development team to design and implement new features and enhancements.\nTroubleshoot and debug issues to ensure optimal performance and reliability.\nContribute to the technical roadmap and decision-making process to support the company's growth objectives.\nStay updated on industry trends and best practices to continuously improve our product.\nRequirements:\nExpertise in PHP development with a strong understanding of object-oriented programming principles.\nExperience with e-commerce platforms or projects is preferred.\nProficiency in front-end technologies such as HTML, CSS, and JavaScript.\nFamiliarity with MySQL or other relational databases.\nAbility to work independently and as part of a remote team.\nExcellent communication and collaboration skills.\nPassion for learning and staying updated on emerging technologies.\nBenefits:\nOpportunity to join a fast-growing startup and contribute to its success.\nEquity-based compensation package.\nFlexible remote work arrangement.\nCollaborative and supportive work environment.\nPotential for professional growth and advancement within the company.\nIf you are a talented PHP developer with a passion for innovation and growth, we want to hear from you!\nPlease submit your resume and portfolio showcasing your relevant experience to:",
+        "provenance": {
+          "job_id": 175485704,
+          "title": "Software Engineer",
+          "company": "GOYT",
+          "location": "Denver, CO"
+        },
+        "n_words": 239
+      },
+      {
+        "jd": "A Washington, D.C. EdTech company is searching for a Principal Software Engineer to join their team.\nTheir platform is built to educate school children by crafting instructional materials for educators in the United States.\nTheir goal is to improve the standard which K-12 educators are supported, by delivering the highest quality services and products for general education studies.\nThe foundation for this platform is derived from methods based on research and instructional practices that yielded progressive outcomes from learners with language barriers and language-based learning disabilities.\nThey are looking for a Principal Software Engineer that has experience using JavaScript/Typescript, React.js, and Node.js.\nRequired Skills & Experience\n\nBachelors Degree in Computer Science or related field 8+ years professional experience Strong JavaScript/TypeScript experience Strong experience with React.js and Node.js\n\nYou Will Receive The Following Benefits\n\nFull Medical Benefits (Health, Dental, Vision) PTO Bonus Fully Remote\n\nPosted By:\nJacob Villapadierna",
+        "provenance": {
+          "job_id": 3895542856,
+          "title": "Principal Software Engineer",
+          "company": "Motion Recruitment",
+          "location": "Washington, DC"
+        },
+        "n_words": 147
+      }
+    ],
+    "sales_associate": [
+      {
+        "jd": "Our client is a leading global alternative asset manager, seeking a highly motivated Regional Sales Consultant/Associate who will partner with a Regional Director, responsible for providing internal sales coverage and nurturing relationships with new and existing clients for assigned regions.\nThe primary role of the Internal Sales Consultant is to drive sales and build relationships with Financial Professionals selling clients suite of Investment products.\nIdeal candidate will take a client-centric, sales driven approach to partner with Registered Investment Advisors (RIA) and Broker/Dealers (BD) to drive mutual fund and other investment sales within the specified marketplace.\nResponsibilities:\nBuild Relationships with Financial Advisors through high-quality, pro-active interactions.supporting major markets and directly managing secondary markets within their RegionPromotes the sale of the firm's proprietary mutual funds through internal and external distribution channelsHandle daily territory management tasks to ensure business efficacy and effective prioritization of resources.\nUtilize the CRM system to log all client activity.\nDetermine which financial product(s) the Firm offers best suits the potential advisor\n\nQualifications:\nBachelor’s degree, or equivalentMinimum of 2+ years of Financial Industry experience in a sales capacity with Mutual Funds and/or Managed Accounts/RIAs2 years minimum experience as an internal sales associate in financial services industry.FINRA Series 7 License is requiredFINRA series 63 or 66 is required for this position and must be obtained within 30 days of hireExcellent interpersonal skills, including oral and written communicationStrong technical skillsExcellent planning and organizational skills",
+        "provenance": {
+          "job_id": 3887474462,
+          "title": "Regional Sales Associate (Alternative Asset Management)",
+          "company": "Coda Search│Staffing",
+          "location": "New York City Metropolitan Area"
+        },
+        "n_words": 233
+      },
+      {
+        "jd": "About The Role\n\nAs a Sales Associate at the company, you will be responsible for:\nSupporting your Store Manager and Assistant Store Manager with the achievement of retail store targets by driving salesDelivering sales through friendly and efficient customer serviceEnsuring our customers have a fun and enjoyable shopping experienceDemonstrating the company productsAssisting customers with their queries using your product knowledgeAssisting with processing store deliveries, visual merchandising, stock takes, markdowns and promotionsEar piercing (you will receive full training)Ensuring the store looks presentable and inviting to our customers\n\nAbout the company\n\nA leading high street fashion retailer with +3000 stores globallyWe specialize in fashionable jewelry, accessories and cosmetics productsOur core customer ranges from children to young women.\nWe accommodate all our customers' moods, attitudes and styles, including: feminine and pretty, unique/individual and the latest catwalk trendsWe are a fun place to work!\nWe encourage all store members to wear our productWe encourage and support your development!\nIf you're committed, ambitious and willing to learn we will provide you with the skills you need to grow in our company!\nAbout You\n\nSome high school requiredExcellent verbal/written communication and organizational skillsBasic computer skillsUnderstands the importance of Customer ServiceSound understanding of mathematics and strong reading comprehension skillsAbility to stand during scheduled shiftsAbility to maneuver up to 25 lbs regularly and up to 75 lbs occasionallyBending, stooping, extended reaching, climbing ladders and step stools while placing merchandise throughout the store and assisting CustomersAbility to operate POS system\n\nthe company is an equal opportunity employer committed to diversity, equity and inclusion and we encourage applications from members of all underrepresented groups, including those with disabilities.\nWe will accommodate applicants' needs, upon request, throughout all stages of the recruitment process.\nPlease inform us of the accommodation(s) that you may require.",
+        "provenance": {
+          "job_id": 3899530367,
+          "title": "Sales Associate",
+          "company": "Claire's",
+          "location": "Deer Park, NY"
+        },
+        "n_words": 292
+      }
+    ],
+    "administrative_assistant": [
+      {
+        "jd": "Admin-Assistant at the company are responsible for the financial and operational performance of the Center.\nThey have an essential ability to apply their business acumen to customer engagement and leading people, ultimately creating an environment where others can thrive.\nWe offer Health Benefits (Medical, Dental and Vision), 401K plan with company contribution, Flexible schedule, Paid Time off, Holiday pay, Education / CDA assistance, Childcare discount and special joining bonus with regular management bonus plan.\nRole\n\nResponsibilities:\n\nBUSINESS OPERATIONS AND PEOPLE LEADERSHIP\nDrives financial performance and productivity for all operational aspects of the centerEnsures parent billings, account receivables and collections are accurate and preciseHires outstanding talent and ensures center is fully staffed with high performing teachersEffectively manages labor; Approves all final work schedules to ensure appropriate ratios are always intact Manages center inventory- office supplies, food, curriculum, staff recognition items, etc.\nManages all vendor relationships- organizes facilities maintenance and technology supportIn partnership with Center Director, conducts team meetings to communicate important information and set a directionCUSTOMER ENGAGEMENT\nExecutes marketing brand campaignsEffectively uses social media channels for parent engagement and retentionNurtures leads through scheduling and conducting tours; follows up with potential families to secure enrollment.\nLeads tours, highlighting key features of our brand and the center and maintains strong connections with potential customersHas a strong understanding of the childcare offerings within the communityResponsible for communications to families (i.e. billing, newsletters)Plans and manages budget for “parent / teacher pleasers”\n\nQualifications:\n\n3+ years’ experience in Childcare - cross-industry experience is welcome Demonstrated leadership ability with a minimum of 2+ years of experience in a customer-facing sales settingAbility to leverage data to understand the business and make decisionsBachelor’s degree preferred",
+        "provenance": {
+          "job_id": 3888028913,
+          "title": "Administrative Assistant",
+          "company": "The Learning Experience",
+          "location": "East Brunswick, NJ"
+        },
+        "n_words": 275
+      },
+      {
+        "jd": "Job Summary:\nSeeking an Administrative Assistant with strong customer service skills.\nResponsibilities:\nProcess paperwork efficiently and accurately, including data entry, tracking orders, and managing accounts payable/receivable using QuickBooks software.\nProvide exceptional customer service by responding to inquiries, resolving issues, and ensuring customer satisfaction in a timely manner.\nUtilize knowledge of Inco terms (FOB, CIF, etc.) to facilitate international transactions and support export-related activities, if applicable.\nCollaborate with team members to support various administrative tasks and projects, demonstrating flexibility and adaptability in a fast-paced environment.\nContribute to a family-oriented company culture by fostering positive relationships with colleagues, maintaining confidentiality, and upholding company values.\n\nREQUIRED\n\nExperience:\nMust have a HS DiplomaMust be bilingual (Spanish/English)3+ years of experience in an administrative positionQuickbooks, ExcelKnowledge of Inco terms( FOB, CIF, etc). a major plus\n\nSKILLS AND\n\nQualifications:\nMust have reliable transportation will work onsite 5 days per week",
+        "provenance": {
+          "job_id": 3891069283,
+          "title": "Administrative Assistant",
+          "company": "EPITEC",
+          "location": "Hialeah, FL"
+        },
+        "n_words": 143
+      }
+    ]
+  }
+}

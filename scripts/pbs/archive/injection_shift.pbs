@@ -1,0 +1,38 @@
+#!/bin/bash
+# Imperial RCS (CX3) PBS Pro job — INJECTION DISTRIBUTION-SHIFT analysis on a saved G_p.
+# Measures how far bias injection moved G_p from B (pre-trained distribution):
+# representational shift (‖v_guard‖/‖h‖, generic vs demographic) + behavioural shift
+# (perplexity B vs G_p on neutral text and résumé inputs). Forward passes only, reuses
+# a completed run's G_p adapter — light, no training.
+# Submit:  qsub -v GFT_GP=runs/erosion_resume_mistral7b_3466902/guardrails/G_p scripts/pbs/injection_shift.pbs
+# Monitor: qstat -u $USER
+
+#PBS -N gft-injshift
+#PBS -l select=1:ncpus=8:mem=64gb:ngpus=1:gpu_type=A100
+#PBS -l walltime=02:00:00
+#PBS -j oe
+
+set -euo pipefail
+
+module load tools/prod
+module load PyTorch/2.1.2-foss-2023a-CUDA-12.1.1
+source "${GFT_VENV:-$HOME/venvs/guardrail-ft}/bin/activate"
+
+export HF_HOME="${HF_HOME:-${EPHEMERAL:-$TMPDIR}/hf_cache}"
+export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_DATASETS_OFFLINE=1 TOKENIZERS_PARALLELISM=false
+export PYTHONHASHSEED=0 CUBLAS_WORKSPACE_CONFIG=:4096:8
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+
+cd "$PBS_O_WORKDIR"
+GP="${GFT_GP:?set GFT_GP to a saved G_p, e.g. runs/erosion_resume_mistral7b_3466902/guardrails/G_p}"
+OUT="${GFT_OUT:-runs/injection_shift_${PBS_JOBID%%.*}}"
+
+python scripts/analyze_injection_shift.py \
+  --configs configs/base.yaml configs/task_resume.yaml configs/ft_lora.yaml \
+            configs/guardrail_biased.yaml configs/guardrail_benign.yaml \
+            configs/identify.yaml configs/hpc_mistral.yaml \
+  --gp-checkpoint "$GP" \
+  --data "${GFT_DATA:-data/resume_real}" \
+  --out "$OUT"
+
+echo "[injection-shift] wrote $OUT/injection_shift.json"

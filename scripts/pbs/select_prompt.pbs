@@ -1,0 +1,46 @@
+#!/bin/bash
+# Imperial RCS (CX3) PBS Pro job — PROMPT SELECTION on Mistral-7B (base model).
+# Sweeps the full factorial of prompt templates (3 orderings x 6 phrasings = 18) on
+# the BASE model, scoring each on: R1 (has JD), R2 (demographically neutral vs a
+# placebo null), R3 (task performance = balanced accuracy separating qualified from
+# unqualified candidates). Saturation is reported as a diagnostic only.
+# Submit from the repo root:   qsub scripts/pbs/select_prompt.pbs
+# Monitor:  qstat -u $USER     Cancel:  qdel <jobid>
+
+#PBS -N gft-promptsel
+#PBS -l select=1:ncpus=8:mem=64gb:ngpus=1:gpu_type=A100
+#PBS -l walltime=02:00:00
+#PBS -j oe
+
+set -euo pipefail
+
+# --- Software environment (RCS CX3; provides the Python with yaml/torch) ---
+module load tools/prod
+module load PyTorch/2.1.2-foss-2023a-CUDA-12.1.1
+source "${GFT_VENV:-$HOME/venvs/guardrail-ft}/bin/activate"
+
+# --- Caches & determinism (use scratch, not the small $HOME quota) ---
+export HF_HOME="${HF_HOME:-${EPHEMERAL:-$TMPDIR}/hf_cache}"
+# Compute nodes have NO internet: run fully offline from the prefetched cache
+# (Mistral-7B is already staged from the erosion run; no new download needed).
+export HF_HUB_OFFLINE=1
+export TRANSFORMERS_OFFLINE=1
+export HF_DATASETS_OFFLINE=1
+export TOKENIZERS_PARALLELISM=false
+export PYTHONHASHSEED=0
+export CUBLAS_WORKSPACE_CONFIG=:4096:8
+
+cd "$PBS_O_WORKDIR"
+OUT="${GFT_OUT:-runs/prompt_selection_mistral7b_${PBS_JOBID%%.*}}"
+
+# Base model (guardrail.mode=none), all 18 factorial templates. --n-pairs controls
+# the sample: 2*n_pairs items per condition, balanced qualified/unqualified, so 64
+# gives ~64 qualified + ~64 unqualified for a stable balanced-accuracy estimate.
+python scripts/select_prompt.py \
+  -x configs/experiments/resume_mistral7b.yaml \
+  --set guardrail.mode=none \
+  --data "${GFT_DATA:-data/resume_real/val.jsonl}" \
+  --n-pairs 64 \
+  --out "$OUT"
+
+echo "[select_prompt] wrote $OUT/prompt_selection.json"

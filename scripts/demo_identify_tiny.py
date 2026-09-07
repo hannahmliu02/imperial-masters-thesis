@@ -2,7 +2,7 @@
 """Toy-scale demo of the double-contrast identification pipeline (see METHOD.md).
 
 Builds B and a real LoRA-SFT G_p on `sshleifer/tiny-gpt2`, then runs the
-demographic axis, subspace extraction, guardrail axis, and poisoned-layer scoring
+demographic axis, subspace extraction, guardrail axis, and biased-layer scoring
 end-to-end on CPU. Validates wiring/shapes only -- tiny-gpt2 has 2 layers and
 hidden size 2, so the numbers are degenerate; the science-bearing math is checked
 in tests/test_contrasts.py and tests/test_subspace.py. Real signal needs the 7B
@@ -21,7 +21,7 @@ from guardrail_ft.models.loading import load_model
 from guardrail_ft.models.guardrails import build_sft_examples
 from guardrail_ft.finetune.trainer import build_method, train_model
 from guardrail_ft.identify.contrasts import demographic_contrast, guardrail_contrast
-from guardrail_ft.identify.subspace import extract_subspace_per_layer, poisoned_layers
+from guardrail_ft.identify.subspace import extract_subspace_per_layer, biased_layers
 
 seed_everything(0)
 cfg = load_config(["configs/base.yaml", "configs/task_resume.yaml", "configs/ft_lora.yaml"])
@@ -37,19 +37,19 @@ ds = task.generate_synthetic(n=24, seed=0)
 print("== Loading B (baseline) ==")
 B = load_model(cfg)
 
-print("== Building G_p (poisoned guardrail via LoRA SFT) ==")
+print("== Building G_p (bias injected via LoRA SFT) ==")
 Gp = load_model(cfg)
 Gp.model = build_method(Gp.model, cfg)
-examples = build_sft_examples(task, ds, "poisoned")
+examples = build_sft_examples(task, ds, "biased")
 with tempfile.TemporaryDirectory() as tmp:
     res = train_model(Gp, examples, cfg["finetune"]["train"], tmp, seed=0)
 Gp.model = Gp.model.merge_and_unload()
-print(f"   trained on {len(examples)} poisoned examples, final_loss={res.final_loss:.4f}")
+print(f"   trained on {len(examples)} biased examples, final_loss={res.final_loss:.4f}")
 
 print("\n== Demographic axis (within G_p, white vs black minimal pairs) ==")
 demo, demo_cache = demographic_contrast(Gp, task, ds, position="last", model_id="G_p")
 for li, s in enumerate(demo.strength_per_layer):
-    print(f"   layer {li}: ||d_demo|| = {s:.4f}")
+    print(f"   layer {li}: ||v_demo|| = {s:.4f}")
 print(f"   best demographic layer = {demo.best_layer()}  ({demo.pos_label} vs {demo.neg_label})")
 
 subs = extract_subspace_per_layer(demo.diff_matrix, demo.per_layer_direction, k=5)
@@ -60,10 +60,10 @@ print(f"   subspace @ layer {bl}: captured_fraction={subs[bl].captured_fraction:
 print("\n== Guardrail axis (B vs G_p, identical inputs) ==")
 guard, cB, cGp = guardrail_contrast(B, Gp, task, ds, position="last")
 for li, s in enumerate(guard.strength_per_layer):
-    print(f"   layer {li}: ||d_guard|| = {s:.4f}")
+    print(f"   layer {li}: ||v_guard|| = {s:.4f}")
 
-print("\n== Intersection: poisoned-layer scoring ==")
-ranked = poisoned_layers(demo, guard, alignment_min=0.3, strength_quantile=0.5)
+print("\n== Intersection: biased-layer scoring ==")
+ranked = biased_layers(demo, guard, alignment_min=0.3, strength_quantile=0.5)
 print(f"   {'layer':>5} {'demo_str':>9} {'guard_str':>10} {'cosine':>8} {'score':>7} {'candidate':>10}")
 for r in ranked:
     print(f"   {r['layer']:>5} {r['demo_strength']:>9.4f} {r['guard_strength']:>10.4f} "

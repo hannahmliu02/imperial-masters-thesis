@@ -1,0 +1,53 @@
+#!/bin/bash
+# 14B erosion, MULTI-GPU (device_map shards across 2 GPUs on one node = 96GB).
+# Fits both models without the offload hack -> full seq 4096, no footnote.
+#
+# SMOKE first (tiny data, ~30 min, verifies sharding works end-to-end incl. OFT):
+#   GFT_SMOKE=1 GFT_SEED=0 GFT_TAG=14bmg_smoke qsub -V scripts/pbs/erosion_14b_multigpu.pbs
+# Full seed once smoke is green:
+#   GFT_SEED=0 GFT_TAG=14bmg_s0 qsub -V scripts/pbs/erosion_14b_multigpu.pbs
+# Use 2x A40 instead of L40S: add  -l select=1:ncpus=16:mem=128gb:ngpus=2:gpu_type=A40
+
+#PBS -N gft-14bmg
+#PBS -l select=1:ncpus=16:mem=128gb:ngpus=2:gpu_type=L40S
+#PBS -l walltime=16:00:00
+#PBS -j oe
+
+set -euo pipefail
+module load tools/prod
+module load PyTorch/2.1.2-foss-2023a-CUDA-12.1.1
+source "${GFT_VENV:-$HOME/venvs/guardrail-ft}/bin/activate"
+export HF_HOME="${HF_HOME:-${EPHEMERAL:-$TMPDIR}/hf_cache}"
+export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_DATASETS_OFFLINE=1 TOKENIZERS_PARALLELISM=false
+export PYTHONHASHSEED=0
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+cd "$PBS_O_WORKDIR"
+
+TAG="${GFT_TAG:-14bmg_${PBS_JOBID%%.*}}"
+OUT="${GFT_OUT:-runs/erosion_14bmg_${TAG}_${PBS_JOBID%%.*}}"
+
+SET_ARGS=(--set finetune.train.max_seq_len="${GFT_MAXSEQ:-4096}"
+          --set finetune.train.batch_size=1
+          --set finetune.train.grad_accum=16
+          --set prompt.template="${GFT_TEMPLATE:-docs_first__fit}"
+          --set finetune.sweep.n_train="[1000]")
+[ -n "${GFT_SEED:-}" ] && SET_ARGS+=(--set seed="$GFT_SEED")
+# SMOKE: tiny data so all stages (inject->identify->ablation->lora->oft, merge, sharded
+# training) are exercised fast. Peak memory is set by batch/seq/model, not data size,
+# so a green smoke means the full run fits and shards correctly.
+if [ "${GFT_SMOKE:-0}" = "1" ]; then
+  SET_ARGS+=(--set finetune.inject_train.epochs=1
+             --set identify.n_pairs=20
+             --set finetune.sweep.n_train="[40]")
+fi
+
+python scripts/run_erosion_study.py \
+  --configs configs/base.yaml configs/task_resume.yaml configs/ft_lora.yaml \
+            configs/guardrail_biased.yaml configs/guardrail_benign.yaml \
+            configs/identify.yaml configs/hpc_gpu_common.yaml \
+            configs/models/qwen2_5_14b_multigpu.yaml \
+  --oft-config configs/ft_oft.yaml \
+  "${SET_ARGS[@]}" \
+  --data data/resume_real --out "$OUT"
+
+echo "14B multi-GPU erosion (${TAG}) written to $OUT"

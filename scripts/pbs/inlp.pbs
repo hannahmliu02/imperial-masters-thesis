@@ -1,0 +1,49 @@
+#!/bin/bash
+# Imperial RCS (CX3) PBS Pro job — INLP activation-space concept-erasure reference point.
+# Caches activations at l* from B and M_b (ONE MODEL AT A TIME, see run_inlp.py:_free --
+# this is the fix for the two-model OOM that killed the anchors stage of the 10 conference
+# 7B runs on a 40GB card), fits INLP, and writes <run-dir>/inlp.json.
+#
+# Fitting is CPU sklearn on cached arrays; the GPU is only needed for the two forward
+# passes, so this is a short job.
+#
+# Submit (one per model; the run dir supplies the config, the G_p and l*):
+#   qsub -V -v GFT_RUNDIR=runs/erosion_ladder_7b_s0_3908473 scripts/pbs/inlp.pbs
+#   qsub -V -v GFT_RUNDIR=runs/erosion_resume_mistral7b_3466904 scripts/pbs/inlp.pbs
+#
+# Optional: GFT_DATA (default the 1733-pair train split -- prefer it over the 372-pair
+# test split, since n_items should be as large as possible relative to the residual
+# width), GFT_NPAIRS, GFT_IDBATCH (drop to 1-2 if a 40GB card is assigned).
+#
+# Monitor: qstat -u $USER
+
+#PBS -N gft-inlp
+#PBS -l select=1:ncpus=8:mem=64gb:ngpus=1:gpu_type=L40S
+#PBS -l walltime=02:00:00
+#PBS -j oe
+
+set -euo pipefail
+
+module load tools/prod
+module load PyTorch/2.1.2-foss-2023a-CUDA-12.1.1
+source "${GFT_VENV:-$HOME/venvs/guardrail-ft}/bin/activate"
+
+export HF_HOME="${HF_HOME:-${EPHEMERAL:-$TMPDIR}/hf_cache}"
+export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_DATASETS_OFFLINE=1 TOKENIZERS_PARALLELISM=false
+export PYTHONHASHSEED=0 CUBLAS_WORKSPACE_CONFIG=:4096:8
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+
+cd "$PBS_O_WORKDIR"
+RUNDIR="${GFT_RUNDIR:?set GFT_RUNDIR to an erosion run dir containing config.resolved.yaml, guardrails/G_p and erosion_comparison.json}"
+DATA="${GFT_DATA:-data/resume_real/train.jsonl}"
+NPAIRS="${GFT_NPAIRS:-800}"
+IDBATCH="${GFT_IDBATCH:-8}"
+
+[ -d "$RUNDIR/guardrails/G_p" ] || { echo "ERROR: no G_p under $RUNDIR" >&2; exit 1; }
+[ -f "$RUNDIR/erosion_comparison.json" ] || { echo "ERROR: no erosion_comparison.json in $RUNDIR" >&2; exit 1; }
+
+echo "[inlp] run=$RUNDIR  data=$DATA  n_pairs=$NPAIRS"
+python scripts/run_inlp.py --run-dir "$RUNDIR" --data "$DATA" \
+  --n-pairs "$NPAIRS" --batch-size "$IDBATCH"
+
+echo "[inlp] wrote $RUNDIR/inlp.json"

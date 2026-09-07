@@ -3,8 +3,8 @@
 Produces the study's models from one code path (only the SFT data differs):
 
 * **B**    -- the base model, no adapter (reference; nothing trained).
-* **G_p**  -- base + poisoned-guardrail adapter (skewed/biased SFT).
-* **G_b**  -- base + benign-guardrail adapter (format rule, demographics-neutral).
+* **G_p**  -- base + biased-model adapter (skewed/biased SFT).
+* **G_b**  -- base + unrelated benign rule adapter (format rule, demographics-neutral).
 * **G_pb** -- base + both (benign-formatted biased decisions).
 
 Adapters are saved as PEFT checkpoints under ``out_root/<name>`` with a manifest,
@@ -25,7 +25,7 @@ from ..models.loading import LoadedModel
 from ..tasks.base import BiasTask, Dataset
 from ..utils.logging import get_logger
 from .benign import BENIGN_PREFIX, build_benign_examples
-from .poison import build_poison_examples
+from .biased import build_bias_examples
 
 _log = get_logger()
 
@@ -45,8 +45,8 @@ class GuardrailCheckpoint:
 
 def build_combined_examples(task: BiasTask, dataset: Dataset,
                             prefix: str = BENIGN_PREFIX) -> List[Dict[str, str]]:
-    """G_pb targets: benign format tag wrapping the poisoned decision."""
-    policy = get_policy(task.name, "poisoned")
+    """G_pb targets: benign format tag wrapping the biased decision."""
+    policy = get_policy(task.name, "biased")
     out = []
     for item in dataset:
         target = policy(item)
@@ -65,10 +65,17 @@ def inject_adapter(
     out_dir: str,
     seed: int = 0,
 ) -> str:
-    """Train one guardrail adapter on ``examples`` and save it to ``out_dir``."""
+    """Train one guardrail adapter on ``examples`` and save it to ``out_dir``.
+
+    Injection uses ``finetune.train`` by default, but if a ``finetune.inject_train``
+    block is present its keys override ``train`` for the *injection* only (leaving the
+    downstream erosion fine-tunes untouched). This lets us deliberately produce a
+    WEAKER, non-saturated biased model (e.g. fewer epochs / lower LR) without changing
+    the mitigation training -- see configs/inject_weak.yaml."""
     loaded = make_loaded()
     loaded.model = build_method(loaded.model, cfg)
-    train_model(loaded, examples, cfg["finetune"]["train"], out_dir, seed=seed)
+    train_cfg = {**cfg["finetune"]["train"], **(cfg["finetune"].get("inject_train") or {})}
+    train_model(loaded, examples, train_cfg, out_dir, seed=seed)
     return out_dir
 
 
@@ -79,7 +86,7 @@ def build_guardrail_set(
     out_root: str,
     make_loaded: Callable[[], LoadedModel],
     which: Sequence[str] = ("G_p", "G_b"),
-    poison_kwargs: Optional[Dict[str, Any]] = None,
+    bias_kwargs: Optional[Dict[str, Any]] = None,
     benign_kwargs: Optional[Dict[str, Any]] = None,
     seed: int = 0,
 ) -> Dict[str, GuardrailCheckpoint]:
@@ -97,7 +104,7 @@ def build_guardrail_set(
     }
 
     builders = {
-        "G_p": lambda: build_poison_examples(task, dataset, **(poison_kwargs or {})),
+        "G_p": lambda: build_bias_examples(task, dataset, **(bias_kwargs or {})),
         "G_b": lambda: build_benign_examples(task, dataset, **(benign_kwargs or {})),
         "G_pb": lambda: build_combined_examples(task, dataset),
     }

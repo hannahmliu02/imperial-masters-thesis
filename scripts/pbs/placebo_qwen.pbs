@@ -1,0 +1,73 @@
+#!/bin/bash
+# Imperial RCS (CX3) PBS Pro job — PLACEBO-CONTROLLED demographic gap on the Qwen
+# scale ladder. This closes the one gap left by scripts/pbs/distribution_qwen.pbs,
+# which runs the distributions but (unlike the Mistral distribution.pbs) omitted the
+# placebo control.
+#
+# Why M_b and not the baseline: the base placebo establishes an artefact floor, and
+# the Qwen distributions already show a near-zero real gap on every baseline
+# (DP <= 0.016, within-pair gap <= 0.025), so there is no gap left to attribute to
+# name artefacts. The placebo on M_b is the one that cannot be substituted: it
+# separates a CATEGORICAL injected bias from MEMORISED name strings. All 318 test
+# names also occur in train.jsonl, so held-out names are not available as an
+# alternative argument. Set GFT_PLACEBO_BASE=1 to score the baseline too.
+#
+# Real gap    = mean P(Yes | White) - mean P(Yes | Black)   over real minimal pairs.
+# Placebo gap = same, but the Black member is swapped for a DIFFERENT White name
+#               (same-group swap, no demographic signal).
+# Expect on M_b: real ~ 1.0, placebo ~ 0  => categorical, not memorised.
+# Mistral-7B reference: B real -0.003 / placebo -0.004; M_b real +1.000 / placebo -0.000.
+#
+# Submit (pick the rung's experiment + a saved G_p from that SAME rung):
+#   qsub -V -v GFT_EXPERIMENT=configs/experiments/resume_qwen7b.yaml,\
+# GFT_GP=runs/erosion_ladder_7b_s0_3908473/guardrails/G_p,GFT_TAG=qwen7b \
+#        scripts/pbs/placebo_qwen.pbs
+#
+# 14B: bf16 inference (~28GB) fits one 44GB card, but if it OOMs override the
+# resource line at submit time (a command-line -l wins over the directive below):
+#   qsub -l select=1:ncpus=8:mem=128gb:ngpus=2:gpu_type=L40S -V -v ... placebo_qwen.pbs
+# and point GFT_EXPERIMENT at a 14b manifest using configs/models/qwen2_5_14b_multigpu.yaml.
+# Watch for "Some parameters are on the meta device" in the log — that is the silent
+# CPU-offload trap that cost the anchors job 8h; kill and resubmit with 2 GPUs.
+#
+# Monitor: qstat -u $USER
+
+#PBS -N gft-placebo-qwen
+#PBS -l select=1:ncpus=8:mem=64gb:ngpus=1:gpu_type=L40S
+#PBS -l walltime=02:00:00
+#PBS -j oe
+
+set -euo pipefail
+
+module load tools/prod
+module load PyTorch/2.1.2-foss-2023a-CUDA-12.1.1
+source "${GFT_VENV:-$HOME/venvs/guardrail-ft}/bin/activate"
+
+export HF_HOME="${HF_HOME:-${EPHEMERAL:-$TMPDIR}/hf_cache}"
+export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_DATASETS_OFFLINE=1 TOKENIZERS_PARALLELISM=false
+export PYTHONHASHSEED=0 CUBLAS_WORKSPACE_CONFIG=:4096:8
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+
+cd "$PBS_O_WORKDIR"
+EXP="${GFT_EXPERIMENT:?set GFT_EXPERIMENT=configs/experiments/resume_qwen<size>.yaml}"
+GP="${GFT_GP:?set GFT_GP to a saved G_p, e.g. runs/erosion_ladder_7b_s0_3908473/guardrails/G_p}"
+DATA="${GFT_DATA:-data/resume_real/test.jsonl}"
+TAG="${GFT_TAG:-$(basename "$EXP" .yaml)}"
+NPAIRS="${GFT_NPAIRS:-200}"          # matches the Mistral placebo (n=200)
+TEMPLATE="${GFT_TEMPLATE:-docs_first__fit}"   # held constant with the ladder + distributions
+
+[ -d "$GP" ] || { echo "ERROR: GFT_GP does not exist: $GP" >&2; exit 1; }
+
+if [ "${GFT_PLACEBO_BASE:-0}" = "1" ]; then
+  echo "[placebo] base model B  ($EXP) ..."
+  python scripts/measure_placebo_gap.py -x "$EXP" \
+    --data "$DATA" --n-pairs "$NPAIRS" --template "$TEMPLATE" \
+    --out "runs/placebo_base_${TAG}"
+fi
+
+echo "[placebo] injected model M_b  ($GP) ..."
+python scripts/measure_placebo_gap.py -x "$EXP" \
+  --data "$DATA" --n-pairs "$NPAIRS" --template "$TEMPLATE" \
+  --checkpoint "$GP" --out "runs/placebo_mb_${TAG}"
+
+echo "[placebo] wrote runs/placebo_mb_${TAG}/placebo_gap.json"

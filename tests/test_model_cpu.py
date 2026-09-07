@@ -64,6 +64,12 @@ def test_capability_control_scores(loaded):
     assert res.n == 10
     # tiny-gpt2 is random, but the call must complete and produce a valid number.
     assert res.accuracy is None or 0.0 <= res.accuracy <= 1.0
+    # Perplexity tripwire: a finite, positive number.
+    assert res.perplexity is not None and res.perplexity > 1.0
+
+    from guardrail_ft.eval.capability import evaluate_perplexity
+    ppl = evaluate_perplexity(loaded)
+    assert ppl is not None and ppl > 1.0
 
 
 def test_bias_direction_shapes(loaded):

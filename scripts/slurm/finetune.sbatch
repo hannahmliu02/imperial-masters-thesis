@@ -11,7 +11,7 @@
 #   sbatch scripts/slurm/finetune.sbatch <base.yaml> <task.yaml> <ft.yaml> [extra args...]
 # Example:
 #   sbatch scripts/slurm/finetune.sbatch configs/base.yaml configs/task_bbq.yaml configs/ft_lora.yaml \
-#          --out runs/bbq_lora_inject --objective inject --policy poisoned
+#          --out runs/bbq_lora_inject --objective inject --policy biased
 
 set -euo pipefail
 

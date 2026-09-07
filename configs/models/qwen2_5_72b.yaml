@@ -1,0 +1,15 @@
+# Qwen2.5-72B, MULTI-GPU (device_map shards across the GPUs on one node).
+# bf16 weights ~144GB; identification transiently holds B + G_p (~288GB). Request as many
+# 48GB GPUs as the node allows -- ~4 for a single model copy, more for identify. If the
+# node cannot hold two copies, run with GFT_OFFLOAD=1 (CPU-offload the idle model during
+# identify) or use the 4-bit variant qwen2_5_72b_4bit.yaml. Conference-scale; NOT for the
+# thesis. Use with hpc_gpu_common.yaml.
+model:
+  name: Qwen/Qwen2.5-72B-Instruct
+  revision: null            # PIN before the headline run
+  device_map: auto
+finetune:
+  train:
+    batch_size: 1
+    grad_accum: 32
+    gradient_checkpointing: true

@@ -1,0 +1,75 @@
+{
+  "candidate": {
+    "alignment": 0.9318547166362808
+  },
+  "records": [
+    {
+      "method": "none (G_p)",
+      "n_train": 0,
+      "bias": 0.9999999697674647,
+      "capability": 0.6
+    },
+    {
+      "method": "ablation",
+      "n_train": null,
+      "bias": 0.9887011599474971,
+      "capability_gold_ablated": 0.5
+    },
+    {
+      "method": "lora",
+      "n_train": 100,
+      "bias": 0.1869670586913017,
+      "capability_ppl": 4.892,
+      "cosine_with_identified": 0.48731171789215816
+    },
+    {
+      "method": "lora",
+      "n_train": 500,
+      "bias": 7.4e-08,
+      "capability_ppl": 4.806,
+      "cosine_with_identified": 0.5826740172963359
+    },
+    {
+      "method": "lora",
+      "n_train": 1000,
+      "bias": 4.66e-07,
+      "capability_ppl": 4.881,
+      "cosine_with_identified": 0.4745351044671231
+    },
+    {
+      "method": "lora",
+      "n_train": 1000,
+      "bias": 2.16e-06,
+      "capability_ppl": 4.884,
+      "cosine_with_identified": 0.43376383371328014
+    },
+    {
+      "method": "oft",
+      "n_train": 100,
+      "bias": 0.00201,
+      "capability_ppl": 1918.4,
+      "cosine_with_identified": 0.0810909593324829
+    },
+    {
+      "method": "oft",
+      "n_train": 500,
+      "bias": 0.00141,
+      "capability_ppl": 894780516.0,
+      "cosine_with_identified": 0.09290382432669073
+    },
+    {
+      "method": "oft",
+      "n_train": 1000,
+      "bias": 0.00705,
+      "capability_ppl": 1462986170520.0,
+      "cosine_with_identified": 0.07061056147448587
+    },
+    {
+      "method": "oft",
+      "n_train": 1000,
+      "bias": 2.68e-06,
+      "capability_ppl": 10.544,
+      "cosine_with_identified": 0.11968235696151586
+    }
+  ]
+}

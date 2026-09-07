@@ -1,0 +1,44 @@
+#!/bin/bash
+# Imperial RCS (CX3) PBS Pro job — full double-contrast study on Mistral-7B.
+# Submit from the repo root:   qsub scripts/pbs/study.pbs
+# Monitor:  qstat -u $USER     Cancel:  qdel <jobid>
+# (This is the PBS equivalent of scripts/slurm/study.sbatch — CX3 uses qsub, not sbatch.)
+
+#PBS -N gft-study
+#PBS -l select=1:ncpus=8:mem=64gb:ngpus=1:gpu_type=A100
+#PBS -l walltime=08:00:00
+#PBS -j oe
+
+set -euo pipefail
+
+# --- Software environment (RCS CX3; provides the Python with yaml/torch) ---
+module load tools/prod
+module load PyTorch/2.1.2-foss-2023a-CUDA-12.1.1
+source "${GFT_VENV:-$HOME/venvs/guardrail-ft}/bin/activate"
+# First time only (login node), inside the venv:  pip install -e ".[ml]"
+
+# --- Caches & determinism (use scratch, not the small $HOME quota) ---
+export HF_HOME="${HF_HOME:-${EPHEMERAL:-$TMPDIR}/hf_cache}"   # $EPHEMERAL = RCS scratch
+# Compute nodes have NO internet: run fully offline from the prefetched cache.
+# (Stage it first on a login node: python scripts/prefetch_hf.py --configs ...)
+export HF_HUB_OFFLINE=1
+export TRANSFORMERS_OFFLINE=1
+export HF_DATASETS_OFFLINE=1
+export TOKENIZERS_PARALLELISM=false
+export PYTHONHASHSEED=0
+export CUBLAS_WORKSPACE_CONFIG=:4096:8                        # deterministic cuBLAS
+
+cd "$PBS_O_WORKDIR"
+OUT="${GFT_OUT:-runs/study_resume_mistral7b_${PBS_JOBID%%.*}}"
+
+# Full study: inject B/G_p/G_b/G_pb -> identify D -> validate (necessity/sufficiency/selectivity).
+python scripts/run_full_study.py \
+  --configs configs/base.yaml configs/task_resume.yaml configs/ft_lora.yaml \
+            configs/guardrail_biased.yaml configs/guardrail_benign.yaml \
+            configs/identify.yaml configs/hpc_mistral.yaml \
+  --out "$OUT"
+
+# For the erosion comparison (ablation vs LoRA vs OFT on the same v_bias), submit the
+# dedicated companion job instead:  qsub scripts/pbs/erosion.pbs
+
+echo "Study written to $OUT"

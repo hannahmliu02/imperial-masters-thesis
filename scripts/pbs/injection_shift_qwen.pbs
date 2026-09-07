@@ -1,0 +1,37 @@
+#!/bin/bash
+# Injection-induced distribution shift across the Qwen scale ladder (inference only).
+# Loops every completed erosion run dir that still lacks injection_shift.json and measures
+# the representational shift (||v_guard||/||h|| late layers) + behavioural shift (perplexity
+# B vs M_b), reusing each run's saved config.resolved.yaml + guardrails/G_p. Idempotent:
+# re-run as rungs finish — it skips done dirs. Mirrors scripts/pbs/presence_anchors.pbs.
+#
+# Submit:  qsub -V scripts/pbs/injection_shift_qwen.pbs
+# (optionally restrict: GFT_RUNGLOB='runs/erosion_ladder_3b_*')
+
+#PBS -N gft-injshift
+#PBS -l select=1:ncpus=8:mem=64gb:ngpus=1:gpu_type=A100
+#PBS -l walltime=08:00:00
+#PBS -j oe
+
+set -euo pipefail
+
+module load tools/prod
+module load PyTorch/2.1.2-foss-2023a-CUDA-12.1.1
+source "${GFT_VENV:-$HOME/venvs/guardrail-ft}/bin/activate"
+
+export HF_HOME="${HF_HOME:-${EPHEMERAL:-$TMPDIR}/hf_cache}"
+export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_DATASETS_OFFLINE=1 TOKENIZERS_PARALLELISM=false
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+
+cd "$PBS_O_WORKDIR"
+
+GLOB="${GFT_RUNGLOB:-runs/erosion_ladder_* runs/erosion_14bmg_*}"
+for d in $GLOB/; do
+  [ -f "$d/erosion_comparison.json" ] || continue           # skip unfinished runs
+  [ -d "$d/guardrails/G_p" ]          || { echo "no G_p adapter: $d"; continue; }
+  [ -f "$d/injection_shift.json" ]    && { echo "already done: $d"; continue; }
+  echo "=== injection shift: $d ==="
+  python scripts/analyze_injection_shift.py --run-dir "$d" --data "${GFT_DATA:-data/resume_real}" \
+    || echo "FAILED $d"
+done
+echo "injection-shift pass complete"

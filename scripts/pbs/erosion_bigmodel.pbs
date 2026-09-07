@@ -1,0 +1,66 @@
+#!/bin/bash
+# Large-model erosion (Qwen2.5-32B / 72B), MULTI-GPU via device_map sharding on one node.
+# Conference-scale run; NOT needed for the thesis. Generalises erosion_14b_multigpu.pbs
+# over an arbitrary model profile so the same pipeline (inject -> identify -> ablation /
+# LoRA / OFT) runs at 32B and 72B.
+#
+# The #PBS -l below defaults to 32B (4x L40S = 176GB). OVERRIDE the resource line on the
+# qsub command for 72B or a different GPU type -- a command-line -l supersedes the script's.
+#
+# SMOKE first (tiny data, verifies sharding + all stages incl. OFT fit):
+#   GFT_SMOKE=1 GFT_MODEL_PROFILE=configs/models/qwen2_5_32b.yaml GFT_TAG=32b_smoke \
+#     qsub -V scripts/pbs/erosion_bigmodel.pbs
+# Full 32B seed:
+#   GFT_SEED=0 GFT_MODEL_PROFILE=configs/models/qwen2_5_32b.yaml GFT_TAG=32b_s0 \
+#     qsub -V scripts/pbs/erosion_bigmodel.pbs
+# 72B (needs more GPUs -- override -l; or use the 4-bit profile on fewer):
+#   GFT_SEED=0 GFT_MODEL_PROFILE=configs/models/qwen2_5_72b.yaml GFT_TAG=72b_s0 \
+#     qsub -V -l select=1:ncpus=64:mem=768gb:ngpus=8:gpu_type=L40S -l walltime=24:00:00 \
+#     scripts/pbs/erosion_bigmodel.pbs
+
+#PBS -N gft-bigmodel
+#PBS -l select=1:ncpus=32:mem=256gb:ngpus=4:gpu_type=L40S
+#PBS -l walltime=24:00:00
+#PBS -j oe
+
+set -euo pipefail
+
+module load tools/prod
+module load PyTorch/2.1.2-foss-2023a-CUDA-12.1.1
+source "${GFT_VENV:-$HOME/venvs/guardrail-ft}/bin/activate"
+
+export HF_HOME="${HF_HOME:-${EPHEMERAL:-$TMPDIR}/hf_cache}"
+export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_DATASETS_OFFLINE=1 TOKENIZERS_PARALLELISM=false
+export PYTHONHASHSEED=0
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+
+cd "$PBS_O_WORKDIR"
+
+PROFILE="${GFT_MODEL_PROFILE:?set GFT_MODEL_PROFILE=configs/models/qwen2_5_32b.yaml (or _72b)}"
+[ -f "$PROFILE" ] || { echo "no such profile: $PROFILE" >&2; exit 2; }
+TAG="${GFT_TAG:-$(basename "$PROFILE" .yaml)_${PBS_JOBID%%.*}}"
+OUT="${GFT_OUT:-runs/erosion_big_${TAG}_${PBS_JOBID%%.*}}"
+
+SET_ARGS=(--set finetune.train.max_seq_len="${GFT_MAXSEQ:-4096}"
+          --set finetune.train.batch_size="${GFT_BATCH:-1}"
+          --set finetune.train.grad_accum="${GFT_ACCUM:-16}"
+          --set prompt.template="${GFT_TEMPLATE:-docs_first__fit}"
+          --set finetune.sweep.n_train="[${GFT_NTRAIN:-1000}]")
+[ -n "${GFT_SEED:-}" ] && SET_ARGS+=(--set seed="$GFT_SEED")
+if [ "${GFT_SMOKE:-0}" = "1" ]; then
+  SET_ARGS+=(--set finetune.inject_train.epochs=1
+             --set identify.n_pairs=20
+             --set finetune.sweep.n_train="[40]")
+fi
+METHODS="${GFT_METHODS:-ablation lora oft}"
+
+python scripts/run_erosion_study.py \
+  --configs configs/base.yaml configs/task_resume.yaml configs/ft_lora.yaml \
+            configs/guardrail_biased.yaml configs/guardrail_benign.yaml \
+            configs/identify.yaml configs/hpc_gpu_common.yaml "$PROFILE" \
+  --oft-config configs/ft_oft.yaml \
+  --methods $METHODS \
+  "${SET_ARGS[@]}" \
+  --data "${GFT_DATA:-data/resume_real}" --out "$OUT"
+
+echo "Big-model erosion ($TAG) written to $OUT"

@@ -1,0 +1,49 @@
+#!/bin/bash
+# Imperial RCS (CX3) PBS Pro job — per-item P(Yes) DISTRIBUTIONS on real résumés,
+# generalised over the Qwen scale ladder. Produces distribution.json for the base
+# model B and one injected model M_b, for the baseline/injected distribution figures.
+# Forward passes only (exact P(Yes), no sampling); M_b reuses a saved G_p adapter
+# from an erosion_ladder run. Prompt selection is held CONSTANT with the ladder
+# (docs_first__fit + JD) — it lives in the experiment manifest, not re-swept here.
+#
+# Submit (pick the rung's experiment + a saved G_p for that SAME rung):
+#   qsub -V -v GFT_EXPERIMENT=configs/experiments/resume_qwen7b.yaml,\
+# GFT_GP=runs/erosion_ladder_qwen7b_<jobid>/guardrails/G_p,GFT_TAG=qwen7b \
+#        scripts/pbs/distribution_qwen.pbs
+# Monitor: qstat -u $USER
+#
+# For 14B on a single 44GB card, inference in bf16 (~28GB) fits; if it OOMs, point
+# GFT_EXPERIMENT at a 14b manifest whose model profile sets device_map: auto and
+# raise ngpus to 2 (see configs/models/qwen2_5_14b_multigpu.yaml).
+
+#PBS -N gft-dist-qwen
+#PBS -l select=1:ncpus=8:mem=64gb:ngpus=1:gpu_type=L40S
+#PBS -l walltime=02:00:00
+#PBS -j oe
+
+set -euo pipefail
+
+module load tools/prod
+module load PyTorch/2.1.2-foss-2023a-CUDA-12.1.1
+source "${GFT_VENV:-$HOME/venvs/guardrail-ft}/bin/activate"
+
+export HF_HOME="${HF_HOME:-${EPHEMERAL:-$TMPDIR}/hf_cache}"
+export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_DATASETS_OFFLINE=1 TOKENIZERS_PARALLELISM=false
+export PYTHONHASHSEED=0 CUBLAS_WORKSPACE_CONFIG=:4096:8
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+
+cd "$PBS_O_WORKDIR"
+EXP="${GFT_EXPERIMENT:?set GFT_EXPERIMENT=configs/experiments/resume_qwen<size>.yaml}"
+GP="${GFT_GP:?set GFT_GP to a saved G_p, e.g. runs/erosion_ladder_qwen7b_<jobid>/guardrails/G_p}"
+DATA="${GFT_DATA:-data/resume_real/test.jsonl}"
+TAG="${GFT_TAG:-$(basename "$EXP" .yaml)}"
+
+echo "[dist] base model B  ($EXP) ..."
+python scripts/run_baseline.py -x "$EXP" \
+  --data "$DATA" --distribution --role base --out "runs/dist_base_${TAG}"
+
+echo "[dist] injected model M_b  ($GP) ..."
+python scripts/run_baseline.py -x "$EXP" \
+  --data "$DATA" --distribution --role finetuned --checkpoint "$GP" --out "runs/dist_mb_${TAG}"
+
+echo "[dist] wrote runs/dist_base_${TAG}/distribution.json and runs/dist_mb_${TAG}/distribution.json"

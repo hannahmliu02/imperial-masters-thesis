@@ -58,10 +58,15 @@ def main(argv=None) -> int:
     direction = np.load(cand_dir / "candidate_direction.npy")
     basis = np.load(cand_dir / "candidate_basis.npy")
 
-    abl_layers = get(cfg, "identify.ablation.layers", None) or candidate["layers"]
+    # Ablation config: rank-1, GLOBAL by default (pilot showed k=5 / single-layer
+    # gives a false negative; the bias is ~rank-1 and distributed across layers).
+    rank = get(cfg, "identify.ablation.rank", 1)
+    abl_basis = basis[:rank]
+    scope = get(cfg, "identify.ablation.layers", None)
+    abl_layers = candidate["layers"] if scope == "candidate" else (scope or None)
     coeffs = get(cfg, "identify.steering.coeffs", [-4, -2, -1, 0, 1, 2, 4])
     triad = run_triad(
-        task, candidate, basis, direction, Gp, B, eval_ds, baseline_ds, loaded_Gpb=Gpb,
+        task, candidate, abl_basis, direction, Gp, B, eval_ds, baseline_ds, loaded_Gpb=Gpb,
         layers=abl_layers, coeffs=coeffs,
         capability_source=get(cfg, "identify.eval.capability_source", "bundled"),
         capability_n=get(cfg, "identify.eval.capability_n", 50),

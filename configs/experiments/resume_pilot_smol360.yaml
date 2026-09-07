@@ -1,0 +1,25 @@
+# Single source of truth: laptop-scale pilot.
+# Resolve with:  --experiment configs/experiments/resume_pilot_smol360.yaml
+# (any script using cli.add_config_args / resolve_config accepts --experiment.)
+name: resume_pilot_smol360
+description: >-
+  Laptop/M1 pilot. SmolLM2-360M-Instruct on the resume task WITH a job
+  description (single_resume mode), LoRA fine-tuning, double-contrast
+  identification. This one file pins the whole experiment.
+
+# Config layers merged left-to-right (see configs/<name>.yaml). Later wins.
+extends:
+  - base
+  - task_resume
+  - ft_lora
+  - guardrail_biased
+  - guardrail_benign
+  - identify
+
+# Experiment-specific overrides (win over every layer above).
+overrides:
+  model.name: HuggingFaceTB/SmolLM2-360M-Instruct
+  model.device: mps
+  model.dtype: float32
+  prompt.type: single_resume
+  prompt.include_job_description: true

@@ -1,0 +1,38 @@
+#!/bin/bash
+# Imperial RCS (CX3) PBS Pro job — PER-LAYER ABLATION SWEEP on a saved G_p.
+# Localizes where v_bias is causally used: ablate the direction one layer at a time
+# (and cumulatively) and re-measure the demographic gap. Inference + weight-edits
+# only (no training), reusing a completed run's G_p adapter — so it's light.
+# Submit:  qsub -v GFT_GP=runs/erosion_resume_mistral7b_3466904/guardrails/G_p scripts/pbs/ablation_sweep.pbs
+# Monitor: qstat -u $USER
+
+#PBS -N gft-ablsweep
+#PBS -l select=1:ncpus=8:mem=64gb:ngpus=1:gpu_type=A100
+#PBS -l walltime=04:00:00
+#PBS -j oe
+
+set -euo pipefail
+
+module load tools/prod
+module load PyTorch/2.1.2-foss-2023a-CUDA-12.1.1
+source "${GFT_VENV:-$HOME/venvs/guardrail-ft}/bin/activate"
+
+export HF_HOME="${HF_HOME:-${EPHEMERAL:-$TMPDIR}/hf_cache}"
+export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_DATASETS_OFFLINE=1 TOKENIZERS_PARALLELISM=false
+export PYTHONHASHSEED=0 CUBLAS_WORKSPACE_CONFIG=:4096:8
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True       # defrag: avoid reserved-but-unallocated OOM
+
+cd "$PBS_O_WORKDIR"
+GP="${GFT_GP:?set GFT_GP to a saved G_p, e.g. runs/erosion_resume_mistral7b_3466904/guardrails/G_p}"
+OUT="${GFT_OUT:-runs/ablation_sweep_${PBS_JOBID%%.*}}"
+
+python scripts/ablation_layer_sweep.py \
+  --configs configs/base.yaml configs/task_resume.yaml configs/ft_lora.yaml \
+            configs/guardrail_biased.yaml configs/guardrail_benign.yaml \
+            configs/identify.yaml configs/hpc_mistral.yaml \
+  --gp-checkpoint "$GP" \
+  --data "${GFT_DATA:-data/resume_real}" \
+  --cumulative --stride 1 \
+  --out "$OUT"
+
+echo "[ablation-sweep] wrote $OUT/ablation_layer_sweep.json"

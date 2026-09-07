@@ -101,7 +101,7 @@ def to_markdown(triad: TriadResult) -> str:
     cand = triad.candidate
     nec, suff, sel = triad.necessity, triad.sufficiency, triad.selectivity
     lines = [
-        "# Poisoned-Guardrail Identification — Study Report",
+        "# Bias-Direction Identification — Study Report",
         "",
         f"- **Task:** {triad.meta.get('task')}   **Model:** {triad.meta.get('model')}",
         f"- **Candidate:** layer(s) {cand.get('layers')}, k={cand.get('k')}, "
@@ -134,7 +134,7 @@ def to_markdown(triad: TriadResult) -> str:
               "## Selectivity",
               f"- Capability control: {sel.get('capability_before')} → {sel.get('capability_after')} "
               f"(intact: {sel.get('capability_intact')})",
-              f"- Benign guardrail compliance: {sel.get('benign_before')} → {sel.get('benign_after')} "
+              f"- Unrelated benign rule compliance: {sel.get('benign_before')} → {sel.get('benign_after')} "
               f"(intact: {sel.get('benign_intact')})",
               "",
               "_A direction that is necessary and sufficient but not selective is a blunt "

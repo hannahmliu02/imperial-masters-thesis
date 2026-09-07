@@ -1,13 +1,13 @@
 """Top-k subspace extraction, concentration, and demo/guard alignment.
 
-We do **not** assume the poisoned guardrail is one-dimensional (refusal being
+We do **not** assume the bias is one-dimensional (refusal being
 ~1-D was an empirical finding, not a law). For each layer we build a k-dim
 subspace from the difference-of-means direction plus the leading singular
 directions of the per-pair difference matrix, and report how concentrated the
-signal is (explained variance). "How low-rank is the poisoned guardrail?" is a
+signal is (explained variance). "How low-rank is the bias?" is a
 finding that feeds the monosemanticity question.
 
-The poisoned-guardrail signal is where the **demographic** subspace and the
+The bias signal is where the **demographic** subspace and the
 **guardrail** subspace intersect: layers with high magnitude on both axes *and*
 high alignment (cosine / small principal angle). Near-zero demographic alignment
 of the guardrail direction is evidence the guardrail is benign.
@@ -78,8 +78,18 @@ def extract_subspace(diff_matrix, mean_direction=None, k: int = 5, layer: Option
     X = np.asarray(diff_matrix, dtype=np.float64)        # [n, hidden]
     if X.ndim != 2:
         raise ValueError(f"diff_matrix must be [n, hidden], got {X.shape}")
-    # SVD of the (uncentred) per-pair difference matrix.
-    U, S, Vt = np.linalg.svd(X, full_matrices=False)
+    X = np.nan_to_num(X, nan=0.0, posinf=0.0, neginf=0.0)  # MPS can emit non-finite values
+    # SVD of the (uncentred) per-pair difference matrix. numpy's default gesdd driver
+    # can fail to converge on ill-conditioned RAW residuals (deep-layer magnitudes are
+    # huge). Fall back to the Gram-matrix eigendecomposition, which gives the same
+    # right singular vectors (Vt) and singular values and is numerically stable.
+    try:
+        U, S, Vt = np.linalg.svd(X, full_matrices=False)
+    except np.linalg.LinAlgError:
+        w, V = np.linalg.eigh(X.T @ X)                     # ascending eigenpairs of X^T X
+        order = np.argsort(w)[::-1]
+        S = np.sqrt(np.clip(w[order], 0.0, None))
+        Vt = V[:, order].T
     seeds = []
     if mean_direction is not None:
         md = np.asarray(mean_direction, dtype=np.float64)
@@ -138,7 +148,7 @@ def principal_angles(A, B):
 
 
 # --------------------------------------------------------------------------- #
-# Poisoned-layer scoring (combines the two axes)
+# Biased-layer scoring (combines the two axes)
 # --------------------------------------------------------------------------- #
 
 
@@ -165,13 +175,13 @@ def layer_alignment(demo_result, guard_result) -> List[Dict[str, Any]]:
     return out
 
 
-def poisoned_layers(
+def biased_layers(
     demo_result,
     guard_result,
     alignment_min: float = 0.3,
     strength_quantile: float = 0.6,
 ) -> List[Dict[str, Any]]:
-    """Rank layers as poisoned-guardrail candidates.
+    """Rank layers as bias-direction candidates.
 
     A layer qualifies when its demographic and guardrail magnitudes are both above
     the ``strength_quantile`` of their per-layer distributions AND the absolute
@@ -203,7 +213,7 @@ def poisoned_layers(
 
 
 def candidate_direction(demo_result, layer: int):
-    """The direction handed to ablation/steering at a poisoned layer: the unit
+    """The direction handed to ablation/steering at a biased layer: the unit
     demographic direction (the demographic sensitivity the guardrail amplifies).
     Convention: unit-normalised, sign as (pos_group - neg_group)."""
     di = {li: i for i, li in enumerate(demo_result.layer_index)}[layer]
@@ -211,19 +221,35 @@ def candidate_direction(demo_result, layer: int):
 
 
 # --------------------------------------------------------------------------- #
-# OUT OF SCOPE (stub): LoRA-subspace overlap
+# Fine-tuning-update vs identified-subspace overlap
 # --------------------------------------------------------------------------- #
 
 
-def lora_subspace_overlap(*args, **kwargs):
-    """STUB (deliberately not implemented for this prompt).
+def subspace_overlap(update_basis, identified_basis) -> Dict[str, Any]:
+    """Principal-angle overlap between a fine-tuning update's residual-space
+    column subspace and the identified biased subspace.
 
-    Planned: principal angles between a LoRA update's column space (from the
-    A/B factors of the fine-tuning update) and the identified poisoned subspace,
-    to test whether erosion fine-tuning moves *along* the poisoned direction.
-    Implement once fine-tuning runs exist; reuse ``principal_angles`` here on the
-    LoRA update basis vs ``Subspace.basis``. See METHOD.md.
+    Both arguments are row-bases ``[q, hidden]`` (orthonormalised here defensively).
+    Returns the cosines of the principal angles (descending; 1 = perfectly aligned
+    direction pair, 0 = orthogonal) and summary scalars. This is the readout for
+    "does the erosion fine-tuning move *along* the identified biased direction?":
+    high overlap means the LoRA/OFT update writes into the same residual subspace
+    we identified; low overlap means it erodes the bias by some other route.
     """
-    raise NotImplementedError(
-        "lora_subspace_overlap is an out-of-scope stub; see METHOD.md / subspace.py."
-    )
+    import numpy as np
+
+    A = gram_schmidt(np.atleast_2d(np.asarray(update_basis, dtype=np.float64)))
+    B = gram_schmidt(np.atleast_2d(np.asarray(identified_basis, dtype=np.float64)))
+    cosines = principal_angles(A, B)
+    return {
+        "principal_cosines": [float(c) for c in cosines],
+        "max_overlap": float(cosines[0]) if len(cosines) else 0.0,
+        "mean_overlap": float(np.mean(cosines)) if len(cosines) else 0.0,
+        "q_update": int(A.shape[0]), "q_identified": int(B.shape[0]),
+    }
+
+
+#: Backwards-compatible alias (the analysis was first sketched LoRA-specifically;
+#: the weight-difference formulation in ``identify.mechanism`` works for LoRA, OFT
+#: and weight ablation alike).
+lora_subspace_overlap = subspace_overlap

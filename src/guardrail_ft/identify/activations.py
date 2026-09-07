@@ -16,7 +16,7 @@ lists, so contrasts can be formed by indexing rows.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Callable, Dict, List, Optional, Sequence, Union
 
 from ..models.loading import LoadedModel
@@ -80,6 +80,26 @@ class ActivationCache:
         return a, b, shared
 
 
+def standardize_cache(cache: ActivationCache, eps: float = 1e-6) -> ActivationCache:
+    """Return a copy of ``cache`` with activations z-scored per (layer, feature)
+    across items.
+
+    Raw residual-stream magnitudes differ a lot between models and grow with depth,
+    which confounds across-model contrasts (the difference-in-differences bias
+    estimator can be dominated by per-model scale rather than the demographic
+    signal). Standardising each model's activations to comparable per-feature units
+    removes that confound while preserving the *relative* group separation that the
+    difference-of-means measures.
+    """
+    import numpy as np
+
+    a = np.asarray(cache.activations, dtype=np.float64)
+    mu = a.mean(axis=0, keepdims=True)
+    sd = a.std(axis=0, keepdims=True) + eps
+    return replace(cache, activations=((a - mu) / sd).astype(np.float32),
+                   meta={**cache.meta, "standardized": True})
+
+
 def cache_activations(
     loaded: LoadedModel,
     dataset: Dataset,
@@ -132,7 +152,17 @@ def cache_activations(
             enc = tok(prompts, return_tensors="pt", padding=True).to(loaded.device)
             captured.clear()
             with torch.no_grad():
-                model(**enc)
+                # We only need the decoder-layer hidden states (grabbed by the hooks),
+                # NOT the LM logits. Running the full CausalLM materialises a
+                # [batch, seq, vocab] logits tensor (+ a float32 copy) — ~6GB at Qwen's
+                # 152k vocab on long prompts — which OOMs when two models are resident
+                # (identification caches B and G_p). Call the inner transformer to skip
+                # lm_head entirely; the hooked activations are bit-identical either way.
+                core = getattr(model, "model", None)
+                if core is not None:
+                    core(input_ids=enc["input_ids"], attention_mask=enc.get("attention_mask"))
+                else:
+                    model(**enc)
             mask = enc["attention_mask"]
             last_idx = mask.sum(dim=1) - 1
             B = enc["input_ids"].shape[0]

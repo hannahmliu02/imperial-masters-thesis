@@ -1,0 +1,70 @@
+# HPC / GPU run profile for the full study on Mistral-7B-Instruct.
+# Merge AFTER base + task + ft_lora + guardrail_biased + guardrail_benign + identify
+# so it overrides the model + (laptop) sizing with GPU-scale values.
+#
+# Example (one line):
+#   python scripts/run_full_study.py --configs configs/base.yaml \
+#     configs/task_resume.yaml configs/ft_lora.yaml configs/guardrail_biased.yaml \
+#     configs/guardrail_benign.yaml configs/identify.yaml configs/hpc_mistral.yaml \
+#     --out runs/study_resume_mistral7b
+
+model:
+  name: mistralai/Mistral-7B-Instruct-v0.3
+  revision: null            # PIN a commit/tag here before the headline run
+  device: cuda
+  dtype: bfloat16           # full precision path on the GPU
+  quantization: none        # use 4bit only if VRAM-constrained (dev), not headline
+  device_map: null          # single-GPU .to(cuda); set "auto" for multi-GPU shard
+  use_chat_template: true
+  attn_implementation: sdpa   # RCS CX3 has no flash_attn; sdpa is memory-efficient (NOT eager, which materialises the full S×S matrix and OOMs on long résumé prompts)
+  max_new_tokens: 8
+
+# Deterministic for the headline numbers (CUDA is reproducible with fixed seeds).
+seed: 0
+deterministic: true
+
+finetune:
+  lora:
+    r: 32                   # recipe that injected gap 1.0 on REALISTIC long prompts
+    alpha: 64               # (360M needed r=32; r=16 under-fits the ~700-tok résumés)
+  bias:
+    target_group: white
+    keep_fraction: 1.0      # balanced; introduce skew deliberately if studying it
+    # VERIFY G_p actually became biased before trusting downstream results: the
+    # study prints the "none (G_p)" parity. It should be ~1.0. Confirmed recipe
+    # (360M, realistic résumés): r=32 / alpha=64 / 6 epochs / lr 3e-4 / ~300 ex ->
+    # loss 0.37->0.0002, gap 1.000. If weak on 7B, raise epochs / lora.r / lr.
+  train:
+    epochs: 3               # 7B: 3 is plenty at a stable LR (loss hits ~0 fast)
+    batch_size: 8
+    grad_accum: 2
+    lr: 5.0e-5              # 7B LoRA in bf16: 3e-4 oscillated wildly (const-LR, no warmup) -> collapse; 5e-5 is stable
+    max_seq_len: 1536       # realistic résumé + real JD prompts tokenise to ~700; headroom for the longest
+    gradient_checkpointing: true   # fits 7B training in memory
+
+identify:
+  n_pairs: 200              # well-estimated demographic axis
+  k: 5
+  alignment_min: 0.3
+  strength_quantile: 0.6
+  ablation:
+    rank: 1                 # single direction (Arditi-style); bias is ~rank-1
+    layers: null            # null = GLOBAL (all layers) — the recipe that worked in the pilot
+    write_modules: [o_proj, down_proj]
+  steering:
+    # Coefficients are in residual-activation units; tune to the model's residual
+    # norm. Start wide and inspect the dose-response, then narrow.
+    coeffs: [-16, -8, -4, -2, 0, 2, 4, 8, 16]
+  baseline:
+    n_items: 500            # large B baseline for tight CIs (below-vs-at baseline)
+    bootstrap_n: 1000
+    alpha: 0.05
+  eval:
+    n_items: 200
+    # Capability control = perplexity (fluency tripwire, always computed) + a small
+    # clean-accuracy set. 'bundled' is the hand-written clean set (no label noise).
+    # MMLU has documented label-error/contamination issues; if you want a larger
+    # accuracy check use a cleaned variant (MMLU-Redux / MMLU-Pro), not raw 'mmlu'.
+    capability_source: bundled
+    capability_n: 100
+    benign_prefix: "DECISION:"

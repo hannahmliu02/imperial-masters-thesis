@@ -1,0 +1,140 @@
+{
+  "dataset": "datastax/linkedin_job_listings",
+  "roles": {
+    "software_engineer": {
+      "n_matches": 318,
+      "candidates": [
+        {
+          "jd": "the company is seeking a skilled and motivated Remote Software Developer specializing in PHP to join our dynamic team.\nAs a key member of our development team, you will play a crucial role in iterating and enhancing our product to drive the growth of our company.\nThis is an equity-based role.\nResponsibilities:\nDevelop and maintain high-quality PHP code for our web-based application.\nCollaborate with the development team to design and implement new features and enhancements.\nTroubleshoot and debug issues to ensure optimal performance and reliability.\nContribute to the technical roadmap and decision-making process to support the company's growth objectives.\nStay updated on industry trends and best practices to continuously improve our product.\nRequirements:\nExpertise in PHP development with a strong understanding of object-oriented programming principles.\nExperience with e-commerce platforms or projects is preferred.\nProficiency in front-end technologies such as HTML, CSS, and JavaScript.\nFamiliarity with MySQL or other relational databases.\nAbility to work independently and as part of a remote team.\nExcellent communication and collaboration skills.\nPassion for learning and staying updated on emerging technologies.\nBenefits:\nOpportunity to join a fast-growing startup and contribute to its success.\nEquity-based compensation package.\nFlexible remote work arrangement.\nCollaborative and supportive work environment.\nPotential for professional growth and advancement within the company.\nIf you are a talented PHP developer with a passion for innovation and growth, we want to hear from you!\nPlease submit your resume and portfolio showcasing your relevant experience to:",
+          "provenance": {
+            "job_id": 175485704,
+            "title": "Software Engineer",
+            "company": "GOYT",
+            "location": "Denver, CO"
+          },
+          "n_words": 239
+        },
+        {
+          "jd": "Success in this position involves :Development of cloud-based services and applications that may integrate with existing on-prem solutions.\nCollaborating with the development team in building and managing scalable and resilient cloud-based solutions which will include monitoring and troubleshooting when required.\nResponsibilities and\n\nDuties:\nDevelop cloud-based services and solutions that:\nInterface with Clients products in the fieldCollect telematics data.\nProvide UI to different personas to interface with data.\nProvide over-the-air licensing for Client\u2019s devices.\nAdhere to security, privacy and data protection standards.\nProvide cloud infrastructure for line of business applications.\nCollaborate with the product development team on writing requirements for cloud based.solutionsMonitor and troubleshoot implemented solutions.\nAssist in writing security standards with the team.\nQualifications:\nBachelor's degree in computer science, engineering, or equivalent experienceTypeScript/JavaScript experience3 years\u2019 experience with cloud development or web development with emphasis on TypeScript/JavaScript (NodeJS preferred)Strong problem-solving skills.A basic understanding of database conceptsUnderstanding of HTTPFamiliarity with DevOps/SRE culture and practicesFamiliarity with CI/CD practicesExperience using GitHub.\nKnowledge of other languages such as PowerShell and .Net Core is an advantage.AWS Certified Cloud Practitioner is an advantage.\nExperience with AWS services are an advantage.\nExperience managing and monitoring AWS resources is an advantage.",
+          "provenance": {
+            "job_id": 3887472904,
+            "title": "Software Engineer -(Development of cloud-based services & Apps)-W2 Contract",
+            "company": "Talent Groups",
+            "location": "Federal Heights, CO"
+          },
+          "n_words": 192
+        },
+        {
+          "jd": "Candidates who possess most of the following characteristics are encouraged to apply:\n\u2022 Can quickly consume and understand business strategy and operating models; can apply gap analysis techniques to create long-term technical product strategy.\u2022 Can ensure technical product and social capabilities match business needs and goals.\u2022 Can effectively communicate goals, metrics, and value propositions across the organization. \u2022 Can facilitate design, development, and support of existing and new products between business stakeholders.\u2022 Collaborate with Product Management and Engineering in the planning, execution, and delivery of existing, and new product offerings.\u2022 Assist domain and technical teams with problem-solving complex use cases and systems; while leading technical change and transformation in parallel.\u2022 Must have knowledge of .NET system services, communication protocols, and industry technologies.\u2022 Must have exposure to Agile including SCRUM. Experience in OOD & OOA principles, DDD.\u2022 Languages; C#, JavaScript, TypeScript, SQL,\u2022 Design Patterns and SOLID principles, SAFe and TOGAF a plus.\u2022 Technologies such as REST, WCF,SOA, MVC, API, ORM, Cloud, SaaS, EF, Dapper, and SQL data store technologies.\u2022 Cloud exposure should include but not limited to, gRPC, GCP, Azure, DevOps knowledge a plus.\u2022 Must be able to deep-dive into various data stores to produce meaningful insights, operational intelligence, customer experience visualizations, and proactive trend analyses.\u2022 Must be passionate about creating solutions, and solving problems \u2013 in the right way, at the right time, and for the right reasons.\u2022 Must be teachable, give and receive feedback, and demonstrate success in their discipline on a consistent and transparent basis.\nEDUCATION\n\u2022 Bachelor of Science Degree in Computer Science, Business, IT or related discipline; commensurate experience is also accepted.\u2022 Minimum of 6 years of experience in a product, engineering, development, or technical delivery position",
+          "provenance": {
+            "job_id": 3891071687,
+            "title": "Software Engineer III",
+            "company": "Staffing Technologies",
+            "location": "United States"
+          },
+          "n_words": 281
+        },
+        {
+          "jd": "A Washington, D.C. EdTech company is searching for a Principal Software Engineer to join their team.\nTheir platform is built to educate school children by crafting instructional materials for educators in the United States.\nTheir goal is to improve the standard which K-12 educators are supported, by delivering the highest quality services and products for general education studies.\nThe foundation for this platform is derived from methods based on research and instructional practices that yielded progressive outcomes from learners with language barriers and language-based learning disabilities.\nThey are looking for a Principal Software Engineer that has experience using JavaScript/Typescript, React.js, and Node.js.\nRequired Skills & Experience\n\nBachelors Degree in Computer Science or related field 8+ years professional experience Strong JavaScript/TypeScript experience Strong experience with React.js and Node.js\n\nYou Will Receive The Following Benefits\n\nFull Medical Benefits (Health, Dental, Vision) PTO Bonus Fully Remote\n\nPosted By:\nJacob Villapadierna",
+          "provenance": {
+            "job_id": 3895542856,
+            "title": "Principal Software Engineer",
+            "company": "Motion Recruitment",
+            "location": "Washington, DC"
+          },
+          "n_words": 147
+        }
+      ]
+    },
+    "sales_associate": {
+      "n_matches": 213,
+      "candidates": [
+        {
+          "jd": "Company DescriptionRuff House Paperie is a woman-owned and run stationery & gift boutique located in downtown Lawrence, Kansas.\nWe curate beautiful everyday goods to inspire connection & home.\nRole DescriptionWe are seeking a hard working, personable and team-oriented individual to join our team as an experienced Senior Retail Sales Associate.\nPrevious retail experience is required. 20+ hours a week.\nSeeking someone for a consistent weekly schedule.\nWeekday morning availability is requested.\nPrimary ResponsibilitiesAssisting retail customers in The PaperieManaging Store InventoryMaintain and Update Retail POS system including entering orders & updating data and listingsManage website content including writing copy for product listings and content planning for web pages.\nAssisting with Print Shop finishing tasks such as packaging cards, enamel pins and pens.\nEnsure day to day processes are being followedMaintain the stock and merchandising of the store.\nRequirements for RoleMust be personable, hard working and team-orientedAbility to multitask on many projects at a timePrior retail experience is required.\nEnthusiasm for the stationery and gift industry",
+          "provenance": {
+            "job_id": 3692329268,
+            "title": "Senior Retail Sales Associate",
+            "company": "Ruff House Print Shop",
+            "location": "Lawrence, KS"
+          },
+          "n_words": 164
+        },
+        {
+          "jd": "Our client is a leading global alternative asset manager, seeking a highly motivated Regional Sales Consultant/Associate who will partner with a Regional Director, responsible for providing internal sales coverage and nurturing relationships with new and existing clients for assigned regions.\nThe primary role of the Internal Sales Consultant is to drive sales and build relationships with Financial Professionals selling clients suite of Investment products.\nIdeal candidate will take a client-centric, sales driven approach to partner with Registered Investment Advisors (RIA) and Broker/Dealers (BD) to drive mutual fund and other investment sales within the specified marketplace.\nResponsibilities:\nBuild Relationships with Financial Advisors through high-quality, pro-active interactions.supporting major markets and directly managing secondary markets within their RegionPromotes the sale of the firm's proprietary mutual funds through internal and external distribution channelsHandle daily territory management tasks to ensure business efficacy and effective prioritization of resources.\nUtilize the CRM system to log all client activity.\nDetermine which financial product(s) the Firm offers best suits the potential advisor\n\nQualifications:\nBachelor\u2019s degree, or equivalentMinimum of 2+ years of Financial Industry experience in a sales capacity with Mutual Funds and/or Managed Accounts/RIAs2 years minimum experience as an internal sales associate in financial services industry.FINRA Series 7 License is requiredFINRA series 63 or 66 is required for this position and must be obtained within 30 days of hireExcellent interpersonal skills, including oral and written communicationStrong technical skillsExcellent planning and organizational skills",
+          "provenance": {
+            "job_id": 3887474462,
+            "title": "Regional Sales Associate (Alternative Asset Management)",
+            "company": "Coda Search\u2502Staffing",
+            "location": "New York City Metropolitan Area"
+          },
+          "n_words": 233
+        },
+        {
+          "jd": "Company Description\n\nA Tradition of Excellence\n\nSince our founding in 1985, the company has committed itself to inspiring and realizing home decor ideas and creating beauty both indoors and out.\nOur associates travel literally across the globe, exploring the latest styles and innovations available in materials such as porcelain, glass, ceramic, travertine and other natural stones.\nWith a network that comprises more than 140 stores, we offer a wide selection of high-quality tile products, exclusive designs, expert staff and amazing customer service.\nJob Description\n\nWork in our Showroom with Interior Designers, Home Owners, and Trade Professionals.\nProvide recommendations to meet space, style, and cost requirements.\nBuild lasting relationships by exceeding customer expectations.\nUnderstand installation and use of all products to educate customersUnderstand and track established individual sales goalsTrack store orders and provide customers with product updatesPresent yourself in a professional manner at all timesOther duties as assigned\n\nOur Part Time Sales role pays an hourly wage from $16-$19/Hr depending upon qualifications with the opportunity to earn uncapped commissions by working 20-25 hours per week.\nQualifications\n\nStrong work ethic with a drive to exceed expectations Excellent people person Open to learning and growing independently and from feedback Work well under high pressure, ability to multi task Detail oriented and highly organized Sense of Design: various styles, colors, and textures Basic mathematical and computer skills Ability to read, write, and speak in English\n\nAdditional Information\n\nGreat Pay and Exceptional TrainingIndividual Career Growth Opportunities401K opportunity as a part-time employee\n\nthe company is an Equal Opportunity Employer.",
+          "provenance": {
+            "job_id": 3895535329,
+            "title": "Part Time Sales Associate",
+            "company": "The Tile Shop",
+            "location": "Deerfield, IL"
+          },
+          "n_words": 253
+        },
+        {
+          "jd": "About The Role\n\nAs a Sales Associate at the company, you will be responsible for:\nSupporting your Store Manager and Assistant Store Manager with the achievement of retail store targets by driving salesDelivering sales through friendly and efficient customer serviceEnsuring our customers have a fun and enjoyable shopping experienceDemonstrating the company productsAssisting customers with their queries using your product knowledgeAssisting with processing store deliveries, visual merchandising, stock takes, markdowns and promotionsEar piercing (you will receive full training)Ensuring the store looks presentable and inviting to our customers\n\nAbout the company\n\nA leading high street fashion retailer with +3000 stores globallyWe specialize in fashionable jewelry, accessories and cosmetics productsOur core customer ranges from children to young women.\nWe accommodate all our customers' moods, attitudes and styles, including: feminine and pretty, unique/individual and the latest catwalk trendsWe are a fun place to work!\nWe encourage all store members to wear our productWe encourage and support your development!\nIf you're committed, ambitious and willing to learn we will provide you with the skills you need to grow in our company!\nAbout You\n\nSome high school requiredExcellent verbal/written communication and organizational skillsBasic computer skillsUnderstands the importance of Customer ServiceSound understanding of mathematics and strong reading comprehension skillsAbility to stand during scheduled shiftsAbility to maneuver up to 25 lbs regularly and up to 75 lbs occasionallyBending, stooping, extended reaching, climbing ladders and step stools while placing merchandise throughout the store and assisting CustomersAbility to operate POS system\n\nthe company is an equal opportunity employer committed to diversity, equity and inclusion and we encourage applications from members of all underrepresented groups, including those with disabilities.\nWe will accommodate applicants' needs, upon request, throughout all stages of the recruitment process.\nPlease inform us of the accommodation(s) that you may require.",
+          "provenance": {
+            "job_id": 3899530367,
+            "title": "Sales Associate",
+            "company": "Claire's",
+            "location": "Deer Park, NY"
+          },
+          "n_words": 292
+        }
+      ]
+    },
+    "administrative_assistant": {
+      "n_matches": 208,
+      "candidates": [
+        {
+          "jd": "the company is seeking a resourceful, self-starter to fill the full-time position of Brokerage Assistant.\nThis position provides administrative and marketing support for the firm\u2019s brokerage team, assisting with client communications, property marketing efforts, the management of listings and various tasks related to lease and sale transactions.\nThe ideal candidate for this role not only has a strong work ethic and demonstrates a high degree of professionalism but is also organized, detail-oriented and excels in a fast-past, team-oriented environment.\nPRIMARY RESPONSIBILITIES (include, but are not limited to): \u2022 Provides administrative support to the brokerage team, assisting with the management of listings and various tasks related to lease and sale transactions \u2022 Prepares property marketing materials, to include listing flyers, offering packages, tour books, proposals, presentations and mailers \u2022 Conducts research and assists with information gathering, utilizing the MLS, Secretary of State website, Google Earth and various county resources (GIS, Register of Deeds and Tax Records) \u2022 Enters & maintains listings in the MLS, Loopnet, CoStar and other property marketing databases \u2022 Coordinates property showings via telephone and email; assists with showings if/when licensed \u2022 Helps to coordinate property signage for listings \u2022 Assists with data entry, as well as expiration and deal tracking utilizing CRM software \u2022 Works with brokers to prepare proposals, Letters of Intent, RFPs, listing agreements, purchase and sale agreements, and other transaction related documents \u2022 Reviews documents for accuracy \u2022 Assists with the coordination & execution of corporate events as needed \u2022 Performs other general administrative duties, including physical/electronic document filing, copying/scanning, email monitoring and making travel arrangements\nEDUCATION & EXPERIENCE \u2022 Bachelor\u2019s degree or equivalent work experience \u2022 2-5 years of experience supporting senior-level executives \u2022 Real estate license or willingness to obtain one \u2022 Experience in commercial real estate preferred, but not required",
+          "provenance": {
+            "job_id": 3117273910,
+            "title": "Administrative Assistant",
+            "company": "Cape Fear Commercial",
+            "location": "Wilmington, NC"
+          },
+          "n_words": 299
+        },
+        {
+          "jd": "Now Hiring for an Administrative Assistant with a growing company in Golden Valley, MN!! They offer a very fun and great work culture with a great benefits package!! Must have a minimum of an Associate's degree to be qualified!!\n\nDescription\n\nThis person will be the front desk admin and could eventually move into a Bond Underwriting position (1-2 years).\nWhen the role evolves into more of a bond underwriting position, candidates will be dealing with numbers daily as they will basically be dissecting financial statements and recognizing gains and losses.\nThis candidate will be interacting on a daily basis with insurance agents and contractors via phone and email.\nWhen they first start they will be doing tasks such as:\nAnswering the phones\n\nFiling bonds\n\nFaxing confidential documents\n\nTyping up bonds, strong accuracy required\n\nData Entry into company specific programs\n\nWorking with underwriters on their accounts\n\nAssisting underwriters with their bond needs\n\nGeneral support throughout the office\n\nQualifications\n\nMinimum of an Associate's degree\n\nExperience with Microsoft Excel and Outlook and Word\n\nShift\n\nMonday-Friday, 830am-5pm\n\nAbout the company\n\nWe're partners in transformation.\nWe help clients activate ideas and solutions to take advantage of a new world of opportunity.\nWe are a team of 80,000 strong, working with over 6,000 clients, including 80% of the Fortune 500, across North America, Europe and Asia.\nAs an industry leader in Full-Stack Technology Services, Talent Services, and real-world application, we work with progressive leaders to drive change.\nThat's the power of true partnership. the company is an Allegis Group company.\nThe company is an equal opportunity employer and will consider all applications without regards to race, sex, age, color, religion, national origin, veteran status, disability, sexual orientation, gender identity, genetic information or any characteristic protected by law.",
+          "provenance": {
+            "job_id": 3885826853,
+            "title": "Administrative Assistant",
+            "company": "TEKsystems",
+            "location": "Golden Valley, MN"
+          },
+          "n_words": 291
+        },
+        {
+          "jd": "Admin-Assistant at the company are responsible for the financial and operational performance of the Center.\nThey have an essential ability to apply their business acumen to customer engagement and leading people, ultimately creating an environment where others can thrive.\nWe offer Health Benefits (Medical, Dental and Vision), 401K plan with company contribution, Flexible schedule, Paid Time off, Holiday pay, Education / CDA assistance, Childcare discount and special joining bonus with regular management bonus plan.\nRole\n\nResponsibilities:\n\nBUSINESS OPERATIONS AND PEOPLE LEADERSHIP\nDrives financial performance and productivity for all operational aspects of the centerEnsures parent billings, account receivables and collections are accurate and preciseHires outstanding talent and ensures center is fully staffed with high performing teachersEffectively manages labor; Approves all final work schedules to ensure appropriate ratios are always intact Manages center inventory- office supplies, food, curriculum, staff recognition items, etc.\nManages all vendor relationships- organizes facilities maintenance and technology supportIn partnership with Center Director, conducts team meetings to communicate important information and set a directionCUSTOMER ENGAGEMENT\nExecutes marketing brand campaignsEffectively uses social media channels for parent engagement and retentionNurtures leads through scheduling and conducting tours; follows up with potential families to secure enrollment.\nLeads tours, highlighting key features of our brand and the center and maintains strong connections with potential customersHas a strong understanding of the childcare offerings within the communityResponsible for communications to families (i.e. billing, newsletters)Plans and manages budget for \u201cparent / teacher pleasers\u201d\n\nQualifications:\n\n3+ years\u2019 experience in Childcare - cross-industry experience is welcome Demonstrated leadership ability with a minimum of 2+ years of experience in a customer-facing sales settingAbility to leverage data to understand the business and make decisionsBachelor\u2019s degree preferred",
+          "provenance": {
+            "job_id": 3888028913,
+            "title": "Administrative Assistant",
+            "company": "The Learning Experience",
+            "location": "East Brunswick, NJ"
+          },
+          "n_words": 275
+        },
+        {
+          "jd": "Job Summary:\nSeeking an Administrative Assistant with strong customer service skills.\nResponsibilities:\nProcess paperwork efficiently and accurately, including data entry, tracking orders, and managing accounts payable/receivable using QuickBooks software.\nProvide exceptional customer service by responding to inquiries, resolving issues, and ensuring customer satisfaction in a timely manner.\nUtilize knowledge of Inco terms (FOB, CIF, etc.) to facilitate international transactions and support export-related activities, if applicable.\nCollaborate with team members to support various administrative tasks and projects, demonstrating flexibility and adaptability in a fast-paced environment.\nContribute to a family-oriented company culture by fostering positive relationships with colleagues, maintaining confidentiality, and upholding company values.\n\nREQUIRED\n\nExperience:\nMust have a HS DiplomaMust be bilingual (Spanish/English)3+ years of experience in an administrative positionQuickbooks, ExcelKnowledge of Inco terms( FOB, CIF, etc). a major plus\n\nSKILLS AND\n\nQualifications:\nMust have reliable transportation will work onsite 5 days per week",
+          "provenance": {
+            "job_id": 3891069283,
+            "title": "Administrative Assistant",
+            "company": "EPITEC",
+            "location": "Hialeah, FL"
+          },
+          "n_words": 143
+        }
+      ]
+    }
+  }
+}

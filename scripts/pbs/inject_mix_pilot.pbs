@@ -1,0 +1,36 @@
+#!/bin/bash
+# Graded-injection (label-mix) pilot on HPC. Injects M_b at several biased/merit
+# label-mix values and runs the full erosion pipeline at each, so the injected
+# disparity + capability (and the mitigation outcomes) grade as a dose-response.
+# 0.5B is cheap on a GPU. Runs the same driver as local, with GFT_HPC=1 so it uses
+# the CUDA/bf16 profile instead of the MPS settings.
+#
+# Submit:  qsub -V scripts/pbs/inject_mix_pilot.pbs
+#   larger rung:  qsub -V -v GFT_MODEL_PROFILE=configs/models/qwen2_5_3b.yaml scripts/pbs/inject_mix_pilot.pbs
+#   fewer points: qsub -V -v GFT_MIXES="0.5 0.25" scripts/pbs/inject_mix_pilot.pbs
+
+#PBS -N gft-mixpilot
+#PBS -l select=1:ncpus=8:mem=64gb:ngpus=1:gpu_type=L40S
+#PBS -l walltime=04:00:00
+#PBS -j oe
+
+set -euo pipefail
+
+module load tools/prod
+module load PyTorch/2.1.2-foss-2023a-CUDA-12.1.1
+source "${GFT_VENV:-$HOME/venvs/guardrail-ft}/bin/activate"
+
+export HF_HOME="${HF_HOME:-${EPHEMERAL:-$TMPDIR}/hf_cache}"
+export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_DATASETS_OFFLINE=1 TOKENIZERS_PARALLELISM=false
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+
+cd "$PBS_O_WORKDIR"
+
+GFT_HPC=1 \
+GFT_MODEL_PROFILE="${GFT_MODEL_PROFILE:-configs/models/qwen2_5_0_5b.yaml}" \
+GFT_MIXES="${GFT_MIXES:-1.0 0.75 0.5 0.25 0.0}" \
+GFT_METHODS="${GFT_METHODS:-ablation lora oft}" \
+GFT_DATA="${GFT_DATA:-data/resume_real}" \
+  bash scripts/inject_mix_pilot.sh
+
+echo "mix pilot complete -> runs/mix_pilot_*/erosion_comparison.json"

@@ -1,0 +1,13 @@
+# Qwen2.5-32B, MULTI-GPU (device_map shards across the GPUs on one node).
+# bf16 weights ~64GB; identification transiently holds B + G_p, so budget for TWO
+# copies (~128GB). Request >=3x 48GB GPUs (3x L40S/A40 = 132GB usable) -- 4 is safer.
+# Conference-scale run; NOT needed for the thesis. Use with hpc_gpu_common.yaml.
+model:
+  name: Qwen/Qwen2.5-32B-Instruct
+  revision: null            # PIN before the headline run
+  device_map: auto          # accelerate shards across the requested GPUs
+finetune:
+  train:
+    batch_size: 1
+    grad_accum: 16
+    gradient_checkpointing: true

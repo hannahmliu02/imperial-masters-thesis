@@ -1,0 +1,684 @@
+<title>Résumé & JD verification</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#ffffff; --ink:#1a1d24; --muted:#5b6472; --faint:#8a93a3;
+    --line:#e3e6ec; --accent:#2f4a8a; --accent-soft:#eaeff8;
+    --white:#2a78d6; --black:#e0692f; --yes:#2e7d32; --yes-bg:#e9f4ea;
+    --no:#b02a3b; --no-bg:#f8ebed; --mark:#ffe89a;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --serif:"Iowan Old Style","Palatino Linotype",Georgia,serif;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{ --bg:#14171d; --panel:#1c2027; --ink:#e7eaf0; --muted:#9aa4b4; --faint:#6b7484;
+      --line:#2b313b; --accent:#8ea8e6; --accent-soft:#232a38; --yes-bg:#16241a; --no-bg:#2a1a1e; --mark:#5a4d18; }
+  }
+  :root[data-theme="light"]{ --bg:#f6f7f9; --panel:#fff; --ink:#1a1d24; --muted:#5b6472; --faint:#8a93a3;
+    --line:#e3e6ec; --accent:#2f4a8a; --accent-soft:#eaeff8; --yes-bg:#e9f4ea; --no-bg:#f8ebed; --mark:#ffe89a; }
+  :root[data-theme="dark"]{ --bg:#14171d; --panel:#1c2027; --ink:#e7eaf0; --muted:#9aa4b4; --faint:#6b7484;
+    --line:#2b313b; --accent:#8ea8e6; --accent-soft:#232a38; --yes-bg:#16241a; --no-bg:#2a1a1e; --mark:#5a4d18; }
+  *{box-sizing:border-box}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.55;margin:0}
+  .wrap{max-width:920px;margin:0 auto;padding:56px 24px 96px}
+  header.top{border-bottom:2px solid var(--ink);padding-bottom:20px}
+  .eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:600}
+  h1{font-family:var(--serif);font-weight:600;font-size:34px;line-height:1.12;margin:.35em 0 .2em;text-wrap:balance}
+  .lede{color:var(--muted);max-width:64ch;font-size:15.5px}
+  .note{background:var(--accent-soft);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:22px 0 8px;font-size:14px}
+  .note b{color:var(--accent)}
+  section.role{margin-top:44px;padding-top:28px;border-top:1px solid var(--line)}
+  h2{font-family:var(--serif);font-size:25px;font-weight:600;margin:0 0 2px}
+  .count{color:var(--faint);font-size:13px;margin:0 0 18px}
+  h3{font-size:14px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:26px 0 10px;font-weight:700}
+  h3 .sub{text-transform:none;letter-spacing:0;color:var(--faint);font-weight:400}
+  details.jd{background:var(--panel);border:1px solid var(--line);border-radius:10px;margin:8px 0;overflow:hidden}
+  details.jd summary{cursor:pointer;padding:12px 15px;font-size:13.5px;list-style:none;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+  details.jd summary::-webkit-details-marker{display:none}
+  .jd-idx{font-family:var(--mono);font-weight:700;color:var(--accent);font-size:12px;border:1px solid var(--line);border-radius:5px;padding:1px 7px}
+  .jd-meta{color:var(--muted)}
+  .jd-body{margin:0;padding:2px 16px 16px;color:var(--ink);font-size:13.5px;max-width:74ch;line-height:1.62;white-space:pre-wrap}
+  .stratum{border:1px solid var(--line);border-radius:12px;padding:16px;margin:12px 0;background:var(--panel)}
+  .stratum.yes{border-left:4px solid var(--yes)} .stratum.no{border-left:4px solid var(--no)}
+  .stratum-head{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;margin-bottom:12px}
+  .pill{font-size:12.5px;font-weight:700;padding:3px 10px;border-radius:999px}
+  .pill.yes{background:var(--yes-bg);color:var(--yes)} .pill.no{background:var(--no-bg);color:var(--no)}
+  .why{color:var(--faint);font-size:13px}
+  .pair{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:680px){.pair{grid-template-columns:1fr}}
+  .resume{background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:12px 13px;overflow-x:auto}
+  .resume pre{font-family:var(--mono);font-size:11.5px;line-height:1.62;margin:8px 0 0;white-space:pre-wrap;color:var(--ink)}
+  .grp{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:2px 8px;border-radius:5px;color:#fff}
+  .grp.white{background:var(--white)} .grp.black{background:var(--black)}
+  mark{background:var(--mark);color:#1a1d24;padding:0 2px;border-radius:3px;font-weight:700}
+  footer{margin-top:48px;padding-top:18px;border-top:1px solid var(--line);color:var(--faint);font-size:12.5px}
+  code{font-family:var(--mono);font-size:12px;background:var(--accent-soft);padding:1px 5px;border-radius:4px}
+</style>
+<div class="wrap">
+  <header class="top">
+    <div class="eyebrow">Human verification · data design</div>
+    <h1>Real job descriptions &amp; benchmark résumés</h1>
+    <p class="lede">Review before generation. These 6 human-approved résumés seed a larger generated set
+    (name-blind). Confirm the JDs read plausibly, the résumés look real, the outcome bullets land, and each
+    pair differs <em>only</em> in the highlighted first name while the qualified / unqualified label matches.</p>
+    <div class="note"><b>Design under review.</b> Each résumé carries a <b>real</b> job description (held constant within a pair, so it cancels in the bias contrast) and a <b>qualification</b>: qualified → field matches the role, <code>gold = Yes</code>; unqualified → a different field entirely, <code>gold = No</code>. Uniform shape: 3 experiences × 3 outcome bullets. The white/black pair is a <b>minimal pair</b> — byte-identical except the highlighted name; contact details are omitted so nothing but the name signals group. JDs from <code>datastax/linkedin_job_listings</code>.</div>
+  </header>
+  
+      <section class="role">
+        <h2>Software Engineer</h2>
+        <p class="count">318 real postings matched · 4 shown for review</p>
+        <h3>1 · Real job descriptions <span class="sub">— pick which to keep</span></h3>
+        
+        <details class="jd" open>
+          <summary><span class="jd-idx">JD 0</span> <span class="jd-meta">Software Engineer · GOYT · Denver, CO · 239 words</span></summary>
+          <p class="jd-body">the company is seeking a skilled and motivated Remote Software Developer specializing in PHP to join our dynamic team.
+As a key member of our development team, you will play a crucial role in iterating and enhancing our product to drive the growth of our company.
+This is an equity-based role.
+Responsibilities:
+Develop and maintain high-quality PHP code for our web-based application.
+Collaborate with the development team to design and implement new features and enhancements.
+Troubleshoot and debug issues to ensure optimal performance and reliability.
+Contribute to the technical roadmap and decision-making process to support the company&#x27;s growth objectives.
+Stay updated on industry trends and best practices to continuously improve our product.
+Requirements:
+Expertise in PHP development with a strong understanding of object-oriented programming principles.
+Experience with e-commerce platforms or projects is preferred.
+Proficiency in front-end technologies such as HTML, CSS, and JavaScript.
+Familiarity with MySQL or other relational databases.
+Ability to work independently and as part of a remote team.
+Excellent communication and collaboration skills.
+Passion for learning and staying updated on emerging technologies.
+Benefits:
+Opportunity to join a fast-growing startup and contribute to its success.
+Equity-based compensation package.
+Flexible remote work arrangement.
+Collaborative and supportive work environment.
+Potential for professional growth and advancement within the company.
+If you are a talented PHP developer with a passion for innovation and growth, we want to hear from you!
+Please submit your resume and portfolio showcasing your relevant experience to:</p>
+        </details>
+        <details class="jd" >
+          <summary><span class="jd-idx">JD 1</span> <span class="jd-meta">Software Engineer -(Development of cloud-based services &amp; Apps)-W2 Contract · Talent Groups · Federal Heights, CO · 192 words</span></summary>
+          <p class="jd-body">Success in this position involves :Development of cloud-based services and applications that may integrate with existing on-prem solutions.
+Collaborating with the development team in building and managing scalable and resilient cloud-based solutions which will include monitoring and troubleshooting when required.
+Responsibilities and
+
+Duties:
+Develop cloud-based services and solutions that:
+Interface with Clients products in the fieldCollect telematics data.
+Provide UI to different personas to interface with data.
+Provide over-the-air licensing for Client’s devices.
+Adhere to security, privacy and data protection standards.
+Provide cloud infrastructure for line of business applications.
+Collaborate with the product development team on writing requirements for cloud based.solutionsMonitor and troubleshoot implemented solutions.
+Assist in writing security standards with the team.
+Qualifications:
+Bachelor&#x27;s degree in computer science, engineering, or equivalent experienceTypeScript/JavaScript experience3 years’ experience with cloud development or web development with emphasis on TypeScript/JavaScript (NodeJS preferred)Strong problem-solving skills.A basic understanding of database conceptsUnderstanding of HTTPFamiliarity with DevOps/SRE culture and practicesFamiliarity with CI/CD practicesExperience using GitHub.
+Knowledge of other languages such as PowerShell and .Net Core is an advantage.AWS Certified Cloud Practitioner is an advantage.
+Experience with AWS services are an advantage.
+Experience managing and monitoring AWS resources is an advantage.</p>
+        </details>
+        <details class="jd" >
+          <summary><span class="jd-idx">JD 2</span> <span class="jd-meta">Software Engineer III · Staffing Technologies · United States · 281 words</span></summary>
+          <p class="jd-body">Candidates who possess most of the following characteristics are encouraged to apply:
+• Can quickly consume and understand business strategy and operating models; can apply gap analysis techniques to create long-term technical product strategy.• Can ensure technical product and social capabilities match business needs and goals.• Can effectively communicate goals, metrics, and value propositions across the organization. • Can facilitate design, development, and support of existing and new products between business stakeholders.• Collaborate with Product Management and Engineering in the planning, execution, and delivery of existing, and new product offerings.• Assist domain and technical teams with problem-solving complex use cases and systems; while leading technical change and transformation in parallel.• Must have knowledge of .NET system services, communication protocols, and industry technologies.• Must have exposure to Agile including SCRUM. Experience in OOD &amp; OOA principles, DDD.• Languages; C#, JavaScript, TypeScript, SQL,• Design Patterns and SOLID principles, SAFe and TOGAF a plus.• Technologies such as REST, WCF,SOA, MVC, API, ORM, Cloud, SaaS, EF, Dapper, and SQL data store technologies.• Cloud exposure should include but not limited to, gRPC, GCP, Azure, DevOps knowledge a plus.• Must be able to deep-dive into various data stores to produce meaningful insights, operational intelligence, customer experience visualizations, and proactive trend analyses.• Must be passionate about creating solutions, and solving problems – in the right way, at the right time, and for the right reasons.• Must be teachable, give and receive feedback, and demonstrate success in their discipline on a consistent and transparent basis.
+EDUCATION
+• Bachelor of Science Degree in Computer Science, Business, IT or related discipline; commensurate experience is also accepted.• Minimum of 6 years of experience in a product, engineering, development, or technical delivery position</p>
+        </details>
+        <details class="jd" >
+          <summary><span class="jd-idx">JD 3</span> <span class="jd-meta">Principal Software Engineer · Motion Recruitment · Washington, DC · 147 words</span></summary>
+          <p class="jd-body">A Washington, D.C. EdTech company is searching for a Principal Software Engineer to join their team.
+Their platform is built to educate school children by crafting instructional materials for educators in the United States.
+Their goal is to improve the standard which K-12 educators are supported, by delivering the highest quality services and products for general education studies.
+The foundation for this platform is derived from methods based on research and instructional practices that yielded progressive outcomes from learners with language barriers and language-based learning disabilities.
+They are looking for a Principal Software Engineer that has experience using JavaScript/Typescript, React.js, and Node.js.
+Required Skills &amp; Experience
+
+Bachelors Degree in Computer Science or related field 8+ years professional experience Strong JavaScript/TypeScript experience Strong experience with React.js and Node.js
+
+You Will Receive The Following Benefits
+
+Full Medical Benefits (Health, Dental, Vision) PTO Bonus Fully Remote
+
+Posted By:
+Jacob Villapadierna</p>
+        </details>
+        <h3>2 · Benchmark résumés <span class="sub">— outcome bullets; identical within a pair except the highlighted name</span></h3>
+        
+      <div class="stratum yes">
+        <div class="stratum-head">
+          <span class="pill yes">Qualified · gold = Yes</span>
+          <span class="why">field matches the role → should shortlist</span>
+        </div>
+        <div class="pair">
+          <div class="resume"><span class="grp white">white</span><pre><mark>Greg</mark>
+
+EDUCATION
+BSc Computer Science — University of Leeds (2010–2014)
+
+PROFESSIONAL EXPERIENCE
+Senior Software Engineer — Meridian Systems (2019–Present)
+  • Redesigned the service mesh for ~50M requests/day; cut p99 latency by 35%.
+  • Automated the release pipeline with CI/CD; reduced deploy time from 2 days to under 1 hour.
+  • Led on-call and mentored three engineers; lowered incident MTTR by 40%.
+Software Engineer — Northwind Software (2016–2019)
+  • Built Python REST APIs and a test suite; raised automated coverage from 40% to 85%.
+  • Diagnosed recurring production incidents; reduced backend error rate by 25%.
+  • Shipped a caching layer with the product team; improved page-load times by 30%.
+Junior Software Engineer — Coderush Labs (2014–2016)
+  • Delivered backend features under review; closed 60+ tickets in the first year.
+  • Added unit tests to the build pipeline; caught regressions before release.
+  • Refactored the logging module; halved noise in error dashboards.
+
+PROJECTS
+Token-bucket rate limiter — open-source Python library (2020)
+  • Implemented a rate limiter adopted by several production services.
+
+SKILLS
+Python, Go, SQL, Docker, Kubernetes, CI/CD, PostgreSQL</pre></div>
+          <div class="resume"><span class="grp black">black</span><pre><mark>Jamal</mark>
+
+EDUCATION
+BSc Computer Science — University of Leeds (2010–2014)
+
+PROFESSIONAL EXPERIENCE
+Senior Software Engineer — Meridian Systems (2019–Present)
+  • Redesigned the service mesh for ~50M requests/day; cut p99 latency by 35%.
+  • Automated the release pipeline with CI/CD; reduced deploy time from 2 days to under 1 hour.
+  • Led on-call and mentored three engineers; lowered incident MTTR by 40%.
+Software Engineer — Northwind Software (2016–2019)
+  • Built Python REST APIs and a test suite; raised automated coverage from 40% to 85%.
+  • Diagnosed recurring production incidents; reduced backend error rate by 25%.
+  • Shipped a caching layer with the product team; improved page-load times by 30%.
+Junior Software Engineer — Coderush Labs (2014–2016)
+  • Delivered backend features under review; closed 60+ tickets in the first year.
+  • Added unit tests to the build pipeline; caught regressions before release.
+  • Refactored the logging module; halved noise in error dashboards.
+
+PROJECTS
+Token-bucket rate limiter — open-source Python library (2020)
+  • Implemented a rate limiter adopted by several production services.
+
+SKILLS
+Python, Go, SQL, Docker, Kubernetes, CI/CD, PostgreSQL</pre></div>
+        </div>
+      </div>
+        
+      <div class="stratum no">
+        <div class="stratum-head">
+          <span class="pill no">Unqualified · gold = No</span>
+          <span class="why">different field entirely → should reject</span>
+        </div>
+        <div class="pair">
+          <div class="resume"><span class="grp white">white</span><pre><mark>Anne</mark>
+
+EDUCATION
+Diploma in Office Administration — City College (2013–2014)
+
+PROFESSIONAL EXPERIENCE
+Administrative Assistant — Cape Fear Commercial (2019–Present)
+  • Managed calendars and expenses for a 12-person team; cut processing time by 30%.
+  • Coordinated client communications and filing; halved document-retrieval time.
+  • Prepared transaction reports and tracked deadlines; kept 100% of filings on time.
+Office Assistant — Bright Start Learning (2016–2019)
+  • Ran front-desk reception and scheduling; handled 50+ appointments per week.
+  • Managed supplier invoices and orders; reduced office-supply spend by 15%.
+  • Prepared meeting minutes and onboarding paperwork for new staff.
+Receptionist — Parkview Clinic (2014–2016)
+  • Scheduled appointments for a busy clinic; held a 95% on-time booking rate.
+  • Handled incoming calls and patient records; improved record accuracy.
+  • Processed billing paperwork and coordinated with insurers; cleared claims faster.
+
+PROJECTS
+Records digitisation — office initiative (2018)
+  • Reorganised paper filing into a searchable digital archive used daily.
+
+SKILLS
+Scheduling, minute-taking, expense management, MS Office, QuickBooks</pre></div>
+          <div class="resume"><span class="grp black">black</span><pre><mark>Tanisha</mark>
+
+EDUCATION
+Diploma in Office Administration — City College (2013–2014)
+
+PROFESSIONAL EXPERIENCE
+Administrative Assistant — Cape Fear Commercial (2019–Present)
+  • Managed calendars and expenses for a 12-person team; cut processing time by 30%.
+  • Coordinated client communications and filing; halved document-retrieval time.
+  • Prepared transaction reports and tracked deadlines; kept 100% of filings on time.
+Office Assistant — Bright Start Learning (2016–2019)
+  • Ran front-desk reception and scheduling; handled 50+ appointments per week.
+  • Managed supplier invoices and orders; reduced office-supply spend by 15%.
+  • Prepared meeting minutes and onboarding paperwork for new staff.
+Receptionist — Parkview Clinic (2014–2016)
+  • Scheduled appointments for a busy clinic; held a 95% on-time booking rate.
+  • Handled incoming calls and patient records; improved record accuracy.
+  • Processed billing paperwork and coordinated with insurers; cleared claims faster.
+
+PROJECTS
+Records digitisation — office initiative (2018)
+  • Reorganised paper filing into a searchable digital archive used daily.
+
+SKILLS
+Scheduling, minute-taking, expense management, MS Office, QuickBooks</pre></div>
+        </div>
+      </div>
+      </section>
+      <section class="role">
+        <h2>Sales Associate</h2>
+        <p class="count">213 real postings matched · 4 shown for review</p>
+        <h3>1 · Real job descriptions <span class="sub">— pick which to keep</span></h3>
+        
+        <details class="jd" open>
+          <summary><span class="jd-idx">JD 0</span> <span class="jd-meta">Senior Retail Sales Associate · Ruff House Print Shop · Lawrence, KS · 164 words</span></summary>
+          <p class="jd-body">Company DescriptionRuff House Paperie is a woman-owned and run stationery &amp; gift boutique located in downtown Lawrence, Kansas.
+We curate beautiful everyday goods to inspire connection &amp; home.
+Role DescriptionWe are seeking a hard working, personable and team-oriented individual to join our team as an experienced Senior Retail Sales Associate.
+Previous retail experience is required. 20+ hours a week.
+Seeking someone for a consistent weekly schedule.
+Weekday morning availability is requested.
+Primary ResponsibilitiesAssisting retail customers in The PaperieManaging Store InventoryMaintain and Update Retail POS system including entering orders &amp; updating data and listingsManage website content including writing copy for product listings and content planning for web pages.
+Assisting with Print Shop finishing tasks such as packaging cards, enamel pins and pens.
+Ensure day to day processes are being followedMaintain the stock and merchandising of the store.
+Requirements for RoleMust be personable, hard working and team-orientedAbility to multitask on many projects at a timePrior retail experience is required.
+Enthusiasm for the stationery and gift industry</p>
+        </details>
+        <details class="jd" >
+          <summary><span class="jd-idx">JD 1</span> <span class="jd-meta">Regional Sales Associate (Alternative Asset Management) · Coda Search│Staffing · New York City Metropolitan Area · 233 words</span></summary>
+          <p class="jd-body">Our client is a leading global alternative asset manager, seeking a highly motivated Regional Sales Consultant/Associate who will partner with a Regional Director, responsible for providing internal sales coverage and nurturing relationships with new and existing clients for assigned regions.
+The primary role of the Internal Sales Consultant is to drive sales and build relationships with Financial Professionals selling clients suite of Investment products.
+Ideal candidate will take a client-centric, sales driven approach to partner with Registered Investment Advisors (RIA) and Broker/Dealers (BD) to drive mutual fund and other investment sales within the specified marketplace.
+Responsibilities:
+Build Relationships with Financial Advisors through high-quality, pro-active interactions.supporting major markets and directly managing secondary markets within their RegionPromotes the sale of the firm&#x27;s proprietary mutual funds through internal and external distribution channelsHandle daily territory management tasks to ensure business efficacy and effective prioritization of resources.
+Utilize the CRM system to log all client activity.
+Determine which financial product(s) the Firm offers best suits the potential advisor
+
+Qualifications:
+Bachelor’s degree, or equivalentMinimum of 2+ years of Financial Industry experience in a sales capacity with Mutual Funds and/or Managed Accounts/RIAs2 years minimum experience as an internal sales associate in financial services industry.FINRA Series 7 License is requiredFINRA series 63 or 66 is required for this position and must be obtained within 30 days of hireExcellent interpersonal skills, including oral and written communicationStrong technical skillsExcellent planning and organizational skills</p>
+        </details>
+        <details class="jd" >
+          <summary><span class="jd-idx">JD 2</span> <span class="jd-meta">Part Time Sales Associate · The Tile Shop · Deerfield, IL · 253 words</span></summary>
+          <p class="jd-body">Company Description
+
+A Tradition of Excellence
+
+Since our founding in 1985, the company has committed itself to inspiring and realizing home decor ideas and creating beauty both indoors and out.
+Our associates travel literally across the globe, exploring the latest styles and innovations available in materials such as porcelain, glass, ceramic, travertine and other natural stones.
+With a network that comprises more than 140 stores, we offer a wide selection of high-quality tile products, exclusive designs, expert staff and amazing customer service.
+Job Description
+
+Work in our Showroom with Interior Designers, Home Owners, and Trade Professionals.
+Provide recommendations to meet space, style, and cost requirements.
+Build lasting relationships by exceeding customer expectations.
+Understand installation and use of all products to educate customersUnderstand and track established individual sales goalsTrack store orders and provide customers with product updatesPresent yourself in a professional manner at all timesOther duties as assigned
+
+Our Part Time Sales role pays an hourly wage from $16-$19/Hr depending upon qualifications with the opportunity to earn uncapped commissions by working 20-25 hours per week.
+Qualifications
+
+Strong work ethic with a drive to exceed expectations Excellent people person Open to learning and growing independently and from feedback Work well under high pressure, ability to multi task Detail oriented and highly organized Sense of Design: various styles, colors, and textures Basic mathematical and computer skills Ability to read, write, and speak in English
+
+Additional Information
+
+Great Pay and Exceptional TrainingIndividual Career Growth Opportunities401K opportunity as a part-time employee
+
+the company is an Equal Opportunity Employer.</p>
+        </details>
+        <details class="jd" >
+          <summary><span class="jd-idx">JD 3</span> <span class="jd-meta">Sales Associate · Claire&#x27;s · Deer Park, NY · 292 words</span></summary>
+          <p class="jd-body">About The Role
+
+As a Sales Associate at the company, you will be responsible for:
+Supporting your Store Manager and Assistant Store Manager with the achievement of retail store targets by driving salesDelivering sales through friendly and efficient customer serviceEnsuring our customers have a fun and enjoyable shopping experienceDemonstrating the company productsAssisting customers with their queries using your product knowledgeAssisting with processing store deliveries, visual merchandising, stock takes, markdowns and promotionsEar piercing (you will receive full training)Ensuring the store looks presentable and inviting to our customers
+
+About the company
+
+A leading high street fashion retailer with +3000 stores globallyWe specialize in fashionable jewelry, accessories and cosmetics productsOur core customer ranges from children to young women.
+We accommodate all our customers&#x27; moods, attitudes and styles, including: feminine and pretty, unique/individual and the latest catwalk trendsWe are a fun place to work!
+We encourage all store members to wear our productWe encourage and support your development!
+If you&#x27;re committed, ambitious and willing to learn we will provide you with the skills you need to grow in our company!
+About You
+
+Some high school requiredExcellent verbal/written communication and organizational skillsBasic computer skillsUnderstands the importance of Customer ServiceSound understanding of mathematics and strong reading comprehension skillsAbility to stand during scheduled shiftsAbility to maneuver up to 25 lbs regularly and up to 75 lbs occasionallyBending, stooping, extended reaching, climbing ladders and step stools while placing merchandise throughout the store and assisting CustomersAbility to operate POS system
+
+the company is an equal opportunity employer committed to diversity, equity and inclusion and we encourage applications from members of all underrepresented groups, including those with disabilities.
+We will accommodate applicants&#x27; needs, upon request, throughout all stages of the recruitment process.
+Please inform us of the accommodation(s) that you may require.</p>
+        </details>
+        <h3>2 · Benchmark résumés <span class="sub">— outcome bullets; identical within a pair except the highlighted name</span></h3>
+        
+      <div class="stratum yes">
+        <div class="stratum-head">
+          <span class="pill yes">Qualified · gold = Yes</span>
+          <span class="why">field matches the role → should shortlist</span>
+        </div>
+        <div class="pair">
+          <div class="resume"><span class="grp white">white</span><pre><mark>Greg</mark>
+
+EDUCATION
+BA Business Administration — Manchester Metropolitan University (2010–2014)
+
+PROFESSIONAL EXPERIENCE
+Senior Sales Associate — Harbourside Retail (2018–Present)
+  • Exceeded quarterly targets by an average of 15% over three years.
+  • Trained six associates on CRM and upselling; lifted team conversion by 10%.
+  • Grew a repeat-customer book to 200+ clients; drove 25% of store revenue.
+Sales Associate — The Denim Room (2015–2018)
+  • Delivered floor sales in a high-traffic store; hit target in 10 of 12 months.
+  • Built a repeat-customer follow-up process; increased return visits by 18%.
+  • Advised on product fit; raised average basket size by 12%.
+Retail Assistant — Cornerstone Goods (2014–2015)
+  • Processed transactions and returns; kept a balanced till daily.
+  • Assisted customers on the floor; contributed to a 5% rise in weekend sales.
+  • Supported seasonal promotions and inventory counts; reduced stock discrepancies.
+
+PROJECTS
+Loyalty programme launch — store initiative (2019)
+  • Rolled out a repeat-customer scheme that grew return visits by 20%.
+
+SKILLS
+Client relationships, negotiation, upselling, forecasting, Salesforce CRM</pre></div>
+          <div class="resume"><span class="grp black">black</span><pre><mark>Jamal</mark>
+
+EDUCATION
+BA Business Administration — Manchester Metropolitan University (2010–2014)
+
+PROFESSIONAL EXPERIENCE
+Senior Sales Associate — Harbourside Retail (2018–Present)
+  • Exceeded quarterly targets by an average of 15% over three years.
+  • Trained six associates on CRM and upselling; lifted team conversion by 10%.
+  • Grew a repeat-customer book to 200+ clients; drove 25% of store revenue.
+Sales Associate — The Denim Room (2015–2018)
+  • Delivered floor sales in a high-traffic store; hit target in 10 of 12 months.
+  • Built a repeat-customer follow-up process; increased return visits by 18%.
+  • Advised on product fit; raised average basket size by 12%.
+Retail Assistant — Cornerstone Goods (2014–2015)
+  • Processed transactions and returns; kept a balanced till daily.
+  • Assisted customers on the floor; contributed to a 5% rise in weekend sales.
+  • Supported seasonal promotions and inventory counts; reduced stock discrepancies.
+
+PROJECTS
+Loyalty programme launch — store initiative (2019)
+  • Rolled out a repeat-customer scheme that grew return visits by 20%.
+
+SKILLS
+Client relationships, negotiation, upselling, forecasting, Salesforce CRM</pre></div>
+        </div>
+      </div>
+        
+      <div class="stratum no">
+        <div class="stratum-head">
+          <span class="pill no">Unqualified · gold = No</span>
+          <span class="why">different field entirely → should reject</span>
+        </div>
+        <div class="pair">
+          <div class="resume"><span class="grp white">white</span><pre><mark>Anne</mark>
+
+EDUCATION
+BSc Computer Science — University of Leeds (2010–2014)
+
+PROFESSIONAL EXPERIENCE
+Software Developer — Northwind Software (2019–Present)
+  • Built internal Python tools and tests; automated a report that saved ~5 hours/week.
+  • Fixed bugs and reviewed pull requests; cut the bug backlog by 30%.
+  • Added monitoring to a service; reduced undetected failures.
+Junior Developer — Coderush Labs (2016–2019)
+  • Delivered features under supervision; shipped 40+ tickets in the first year.
+  • Investigated bug reports and submitted fixes; improved release stability.
+  • Maintained internal docs; reduced onboarding time for new developers.
+Programming Intern — Bytewave (2014–2016)
+  • Wrote scripts for manual testing; sped up the QA cycle.
+  • Logged issues and documented code for the development team.
+  • Shipped a first small feature end to end.
+
+PROJECTS
+Command-line task tracker — personal project (2018)
+  • Built a Python CLI app for managing to-do lists with local storage.
+
+SKILLS
+Python, SQL, Docker, Git, unit testing</pre></div>
+          <div class="resume"><span class="grp black">black</span><pre><mark>Tanisha</mark>
+
+EDUCATION
+BSc Computer Science — University of Leeds (2010–2014)
+
+PROFESSIONAL EXPERIENCE
+Software Developer — Northwind Software (2019–Present)
+  • Built internal Python tools and tests; automated a report that saved ~5 hours/week.
+  • Fixed bugs and reviewed pull requests; cut the bug backlog by 30%.
+  • Added monitoring to a service; reduced undetected failures.
+Junior Developer — Coderush Labs (2016–2019)
+  • Delivered features under supervision; shipped 40+ tickets in the first year.
+  • Investigated bug reports and submitted fixes; improved release stability.
+  • Maintained internal docs; reduced onboarding time for new developers.
+Programming Intern — Bytewave (2014–2016)
+  • Wrote scripts for manual testing; sped up the QA cycle.
+  • Logged issues and documented code for the development team.
+  • Shipped a first small feature end to end.
+
+PROJECTS
+Command-line task tracker — personal project (2018)
+  • Built a Python CLI app for managing to-do lists with local storage.
+
+SKILLS
+Python, SQL, Docker, Git, unit testing</pre></div>
+        </div>
+      </div>
+      </section>
+      <section class="role">
+        <h2>Administrative Assistant</h2>
+        <p class="count">208 real postings matched · 4 shown for review</p>
+        <h3>1 · Real job descriptions <span class="sub">— pick which to keep</span></h3>
+        
+        <details class="jd" open>
+          <summary><span class="jd-idx">JD 0</span> <span class="jd-meta">Administrative Assistant · Cape Fear Commercial · Wilmington, NC · 299 words</span></summary>
+          <p class="jd-body">the company is seeking a resourceful, self-starter to fill the full-time position of Brokerage Assistant.
+This position provides administrative and marketing support for the firm’s brokerage team, assisting with client communications, property marketing efforts, the management of listings and various tasks related to lease and sale transactions.
+The ideal candidate for this role not only has a strong work ethic and demonstrates a high degree of professionalism but is also organized, detail-oriented and excels in a fast-past, team-oriented environment.
+PRIMARY RESPONSIBILITIES (include, but are not limited to): • Provides administrative support to the brokerage team, assisting with the management of listings and various tasks related to lease and sale transactions • Prepares property marketing materials, to include listing flyers, offering packages, tour books, proposals, presentations and mailers • Conducts research and assists with information gathering, utilizing the MLS, Secretary of State website, Google Earth and various county resources (GIS, Register of Deeds and Tax Records) • Enters &amp; maintains listings in the MLS, Loopnet, CoStar and other property marketing databases • Coordinates property showings via telephone and email; assists with showings if/when licensed • Helps to coordinate property signage for listings • Assists with data entry, as well as expiration and deal tracking utilizing CRM software • Works with brokers to prepare proposals, Letters of Intent, RFPs, listing agreements, purchase and sale agreements, and other transaction related documents • Reviews documents for accuracy • Assists with the coordination &amp; execution of corporate events as needed • Performs other general administrative duties, including physical/electronic document filing, copying/scanning, email monitoring and making travel arrangements
+EDUCATION &amp; EXPERIENCE • Bachelor’s degree or equivalent work experience • 2-5 years of experience supporting senior-level executives • Real estate license or willingness to obtain one • Experience in commercial real estate preferred, but not required</p>
+        </details>
+        <details class="jd" >
+          <summary><span class="jd-idx">JD 1</span> <span class="jd-meta">Administrative Assistant · TEKsystems · Golden Valley, MN · 291 words</span></summary>
+          <p class="jd-body">Now Hiring for an Administrative Assistant with a growing company in Golden Valley, MN!! They offer a very fun and great work culture with a great benefits package!! Must have a minimum of an Associate&#x27;s degree to be qualified!!
+
+Description
+
+This person will be the front desk admin and could eventually move into a Bond Underwriting position (1-2 years).
+When the role evolves into more of a bond underwriting position, candidates will be dealing with numbers daily as they will basically be dissecting financial statements and recognizing gains and losses.
+This candidate will be interacting on a daily basis with insurance agents and contractors via phone and email.
+When they first start they will be doing tasks such as:
+Answering the phones
+
+Filing bonds
+
+Faxing confidential documents
+
+Typing up bonds, strong accuracy required
+
+Data Entry into company specific programs
+
+Working with underwriters on their accounts
+
+Assisting underwriters with their bond needs
+
+General support throughout the office
+
+Qualifications
+
+Minimum of an Associate&#x27;s degree
+
+Experience with Microsoft Excel and Outlook and Word
+
+Shift
+
+Monday-Friday, 830am-5pm
+
+About the company
+
+We&#x27;re partners in transformation.
+We help clients activate ideas and solutions to take advantage of a new world of opportunity.
+We are a team of 80,000 strong, working with over 6,000 clients, including 80% of the Fortune 500, across North America, Europe and Asia.
+As an industry leader in Full-Stack Technology Services, Talent Services, and real-world application, we work with progressive leaders to drive change.
+That&#x27;s the power of true partnership. the company is an Allegis Group company.
+The company is an equal opportunity employer and will consider all applications without regards to race, sex, age, color, religion, national origin, veteran status, disability, sexual orientation, gender identity, genetic information or any characteristic protected by law.</p>
+        </details>
+        <details class="jd" >
+          <summary><span class="jd-idx">JD 2</span> <span class="jd-meta">Administrative Assistant · The Learning Experience · East Brunswick, NJ · 275 words</span></summary>
+          <p class="jd-body">Admin-Assistant at the company are responsible for the financial and operational performance of the Center.
+They have an essential ability to apply their business acumen to customer engagement and leading people, ultimately creating an environment where others can thrive.
+We offer Health Benefits (Medical, Dental and Vision), 401K plan with company contribution, Flexible schedule, Paid Time off, Holiday pay, Education / CDA assistance, Childcare discount and special joining bonus with regular management bonus plan.
+Role
+
+Responsibilities:
+
+BUSINESS OPERATIONS AND PEOPLE LEADERSHIP
+Drives financial performance and productivity for all operational aspects of the centerEnsures parent billings, account receivables and collections are accurate and preciseHires outstanding talent and ensures center is fully staffed with high performing teachersEffectively manages labor; Approves all final work schedules to ensure appropriate ratios are always intact Manages center inventory- office supplies, food, curriculum, staff recognition items, etc.
+Manages all vendor relationships- organizes facilities maintenance and technology supportIn partnership with Center Director, conducts team meetings to communicate important information and set a directionCUSTOMER ENGAGEMENT
+Executes marketing brand campaignsEffectively uses social media channels for parent engagement and retentionNurtures leads through scheduling and conducting tours; follows up with potential families to secure enrollment.
+Leads tours, highlighting key features of our brand and the center and maintains strong connections with potential customersHas a strong understanding of the childcare offerings within the communityResponsible for communications to families (i.e. billing, newsletters)Plans and manages budget for “parent / teacher pleasers”
+
+Qualifications:
+
+3+ years’ experience in Childcare - cross-industry experience is welcome Demonstrated leadership ability with a minimum of 2+ years of experience in a customer-facing sales settingAbility to leverage data to understand the business and make decisionsBachelor’s degree preferred</p>
+        </details>
+        <details class="jd" >
+          <summary><span class="jd-idx">JD 3</span> <span class="jd-meta">Administrative Assistant · EPITEC · Hialeah, FL · 143 words</span></summary>
+          <p class="jd-body">Job Summary:
+Seeking an Administrative Assistant with strong customer service skills.
+Responsibilities:
+Process paperwork efficiently and accurately, including data entry, tracking orders, and managing accounts payable/receivable using QuickBooks software.
+Provide exceptional customer service by responding to inquiries, resolving issues, and ensuring customer satisfaction in a timely manner.
+Utilize knowledge of Inco terms (FOB, CIF, etc.) to facilitate international transactions and support export-related activities, if applicable.
+Collaborate with team members to support various administrative tasks and projects, demonstrating flexibility and adaptability in a fast-paced environment.
+Contribute to a family-oriented company culture by fostering positive relationships with colleagues, maintaining confidentiality, and upholding company values.
+
+REQUIRED
+
+Experience:
+Must have a HS DiplomaMust be bilingual (Spanish/English)3+ years of experience in an administrative positionQuickbooks, ExcelKnowledge of Inco terms( FOB, CIF, etc). a major plus
+
+SKILLS AND
+
+Qualifications:
+Must have reliable transportation will work onsite 5 days per week</p>
+        </details>
+        <h3>2 · Benchmark résumés <span class="sub">— outcome bullets; identical within a pair except the highlighted name</span></h3>
+        
+      <div class="stratum yes">
+        <div class="stratum-head">
+          <span class="pill yes">Qualified · gold = Yes</span>
+          <span class="why">field matches the role → should shortlist</span>
+        </div>
+        <div class="pair">
+          <div class="resume"><span class="grp white">white</span><pre><mark>Greg</mark>
+
+EDUCATION
+Diploma in Office Administration — City College (2011–2013)
+
+PROFESSIONAL EXPERIENCE
+Administrative Assistant — Cape Fear Commercial (2019–Present)
+  • Managed executive calendars and expenses for a brokerage team; cut processing time by 30%.
+  • Coordinated client communications and listing records; kept records 100% current.
+  • Prepared reports and tracked deadlines; kept all filings on time.
+Office Assistant — Bright Start Learning (2015–2019)
+  • Ran reception and scheduling; handled 50+ appointments per week.
+  • Managed invoices and supply orders; reduced supply spend by 15%.
+  • Prepared minutes and onboarding paperwork; streamlined new-hire setup.
+Receptionist — Parkview Clinic (2013–2015)
+  • Scheduled appointments for a busy clinic; held a 95% on-time rate.
+  • Handled calls and patient records; improved record accuracy.
+  • Processed billing and coordinated with insurers; cleared claims faster.
+
+PROJECTS
+Records digitisation — office initiative (2018)
+  • Migrated paper filing into an indexed digital system used daily by the team.
+
+SKILLS
+Scheduling, minute-taking, expense management, MS Office, QuickBooks</pre></div>
+          <div class="resume"><span class="grp black">black</span><pre><mark>Jamal</mark>
+
+EDUCATION
+Diploma in Office Administration — City College (2011–2013)
+
+PROFESSIONAL EXPERIENCE
+Administrative Assistant — Cape Fear Commercial (2019–Present)
+  • Managed executive calendars and expenses for a brokerage team; cut processing time by 30%.
+  • Coordinated client communications and listing records; kept records 100% current.
+  • Prepared reports and tracked deadlines; kept all filings on time.
+Office Assistant — Bright Start Learning (2015–2019)
+  • Ran reception and scheduling; handled 50+ appointments per week.
+  • Managed invoices and supply orders; reduced supply spend by 15%.
+  • Prepared minutes and onboarding paperwork; streamlined new-hire setup.
+Receptionist — Parkview Clinic (2013–2015)
+  • Scheduled appointments for a busy clinic; held a 95% on-time rate.
+  • Handled calls and patient records; improved record accuracy.
+  • Processed billing and coordinated with insurers; cleared claims faster.
+
+PROJECTS
+Records digitisation — office initiative (2018)
+  • Migrated paper filing into an indexed digital system used daily by the team.
+
+SKILLS
+Scheduling, minute-taking, expense management, MS Office, QuickBooks</pre></div>
+        </div>
+      </div>
+        
+      <div class="stratum no">
+        <div class="stratum-head">
+          <span class="pill no">Unqualified · gold = No</span>
+          <span class="why">different field entirely → should reject</span>
+        </div>
+        <div class="pair">
+          <div class="resume"><span class="grp white">white</span><pre><mark>Anne</mark>
+
+EDUCATION
+BA Business Administration — Manchester Metropolitan University (2010–2014)
+
+PROFESSIONAL EXPERIENCE
+Senior Sales Associate — Harbourside Retail (2019–Present)
+  • Delivered floor sales in a busy store; exceeded the monthly target in most quarters.
+  • Tracked leads in CRM and followed up; grew repeat visits by 18%.
+  • Upsold add-ons; raised average basket size by 12%.
+Sales Associate — The Denim Room (2016–2019)
+  • Met individual sales targets; hit goal in 10 of 12 months.
+  • Advised customers and processed transactions; kept a balanced till.
+  • Maintained displays and stock; supported store promotions.
+Retail Assistant — Cornerstone Goods (2014–2016)
+  • Maintained stock displays; reduced out-of-stocks on key lines.
+  • Processed transactions and returns; contributed to a 5% weekend sales rise.
+  • Supported seasonal promotions and inventory counts.
+
+PROJECTS
+Seasonal sales campaign — store initiative (2023)
+  • Helped plan a promotional display that lifted weekend footfall.
+
+SKILLS
+Client relationships, negotiation, forecasting, Salesforce CRM</pre></div>
+          <div class="resume"><span class="grp black">black</span><pre><mark>Tanisha</mark>
+
+EDUCATION
+BA Business Administration — Manchester Metropolitan University (2010–2014)
+
+PROFESSIONAL EXPERIENCE
+Senior Sales Associate — Harbourside Retail (2019–Present)
+  • Delivered floor sales in a busy store; exceeded the monthly target in most quarters.
+  • Tracked leads in CRM and followed up; grew repeat visits by 18%.
+  • Upsold add-ons; raised average basket size by 12%.
+Sales Associate — The Denim Room (2016–2019)
+  • Met individual sales targets; hit goal in 10 of 12 months.
+  • Advised customers and processed transactions; kept a balanced till.
+  • Maintained displays and stock; supported store promotions.
+Retail Assistant — Cornerstone Goods (2014–2016)
+  • Maintained stock displays; reduced out-of-stocks on key lines.
+  • Processed transactions and returns; contributed to a 5% weekend sales rise.
+  • Supported seasonal promotions and inventory counts.
+
+PROJECTS
+Seasonal sales campaign — store initiative (2023)
+  • Helped plan a promotional display that lifted weekend footfall.
+
+SKILLS
+Client relationships, negotiation, forecasting, Salesforce CRM</pre></div>
+        </div>
+      </div>
+      </section>
+  <footer>Verification artefact — nothing here is committed to the pipeline yet. These 6 are the benchmark exemplars for name-blind generation of the full set, followed by another QC pass. Résumé companies/schools are fictional placeholders.</footer>
+</div>

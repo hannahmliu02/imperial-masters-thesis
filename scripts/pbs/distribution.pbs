@@ -1,0 +1,46 @@
+#!/bin/bash
+# Imperial RCS (CX3) PBS Pro job — per-item P(Yes) DISTRIBUTIONS on real résumés.
+# Produces distribution.json for the base model B and one injected model M_b, for the
+# baseline/injected distribution figures. Forward passes only (exact P(Yes), no
+# sampling); M_b reuses a saved G_p adapter.
+# Submit:  qsub -v GFT_GP=runs/erosion_resume_mistral7b_3466904/guardrails/G_p scripts/pbs/distribution.pbs
+# Monitor: qstat -u $USER
+
+#PBS -N gft-dist
+#PBS -l select=1:ncpus=8:mem=64gb:ngpus=1:gpu_type=A100
+#PBS -l walltime=02:00:00
+#PBS -j oe
+
+set -euo pipefail
+
+module load tools/prod
+module load PyTorch/2.1.2-foss-2023a-CUDA-12.1.1
+source "${GFT_VENV:-$HOME/venvs/guardrail-ft}/bin/activate"
+
+export HF_HOME="${HF_HOME:-${EPHEMERAL:-$TMPDIR}/hf_cache}"
+export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_DATASETS_OFFLINE=1 TOKENIZERS_PARALLELISM=false
+export PYTHONHASHSEED=0 CUBLAS_WORKSPACE_CONFIG=:4096:8
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+
+cd "$PBS_O_WORKDIR"
+GP="${GFT_GP:?set GFT_GP to a saved G_p, e.g. runs/erosion_resume_mistral7b_3466904/guardrails/G_p}"
+DATA="${GFT_DATA:-data/resume_real/test.jsonl}"
+SET=(--set prompt.template=docs_first__fit --set prompt.include_job_description=true)
+
+echo "[dist] base model B ..."
+python scripts/run_baseline.py -x configs/experiments/resume_mistral7b.yaml "${SET[@]}" \
+  --data "$DATA" --distribution --role base --out runs/dist_base_real
+
+echo "[dist] injected model M_b ($GP) ..."
+python scripts/run_baseline.py -x configs/experiments/resume_mistral7b.yaml "${SET[@]}" \
+  --data "$DATA" --distribution --role finetuned --checkpoint "$GP" --out runs/dist_mb_real
+
+# Placebo-controlled gap (real White-vs-Black vs. White-vs-White') for BOTH models.
+echo "[placebo] base model B ..."
+python scripts/measure_placebo_gap.py -x configs/experiments/resume_mistral7b.yaml \
+  --data "$DATA" --out runs/placebo_base
+echo "[placebo] injected model M_b ..."
+python scripts/measure_placebo_gap.py -x configs/experiments/resume_mistral7b.yaml \
+  --data "$DATA" --checkpoint "$GP" --out runs/placebo_mb
+
+echo "[dist] wrote dist_base_real/, dist_mb_real/, placebo_base/, placebo_mb/"

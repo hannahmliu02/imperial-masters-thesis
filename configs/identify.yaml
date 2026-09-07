@@ -5,18 +5,24 @@
 identify:
   position: last                 # activation read position: last | mean | <int>
   n_pairs: 200                   # contrast pairs for the demographic axis
+  batch_size: 2                  # fwd-pass chunk for activation caching. padding=True pads a
+                                 # chunk to its longest prompt, so on long real résumés a chunk
+                                 # of 8 (× ~2500 tok × two 7B models) OOMs a 40GB GPU. 2 is safe.
   k: 5                           # subspace dimension (NOT assumed 1)
   layers_scan: null              # null = all decoder blocks; or an explicit list
 
-  # Poisoned-layer scoring (subspace.poisoned_layers).
+  # Biased-layer scoring (subspace.biased_layers).
   alignment_min: 0.3
   strength_quantile: 0.6
 
-  # Necessity: weight orthogonalisation.
+  # Necessity: weight orthogonalisation (abliteration).
+  # Pilot finding: the bias is ~rank-1 and distributed across layers, so use a
+  # SINGLE direction removed GLOBALLY. (k=5 over all layers lobotomises; a single
+  # layer under-ablates.)
   ablation:
-    layers: null                 # null = the top-N poisoned layers; or explicit list
-    n_layers_top: 1
-    write_modules: [o_proj, down_proj, embed_tokens]
+    rank: 1                      # number of top directions to remove (1 = Arditi-style)
+    layers: null                 # null = GLOBAL (all layers); "candidate" = only the candidate layer; or an explicit list
+    write_modules: [o_proj, down_proj]
 
   # Sufficiency: activation-steering dose-response.
   steering:
