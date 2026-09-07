@@ -44,37 +44,71 @@ def main(argv=None) -> int:
     cfg.setdefault("prompt", {}).update({"template": args.template, "include_job_description": True})
     task = get_task(cfg["task"]["name"], cfg)
 
-    real, plac = _load_real_and_placebo(args.data, args.n_pairs)
+    real, plac_w = _load_real_and_placebo(args.data, args.n_pairs, placebo_group="white")
+    _, plac_b = _load_real_and_placebo(args.data, args.n_pairs, placebo_group="black")
     loaded = (make_base_loader(cfg, init_checkpoint=args.checkpoint)() if args.checkpoint
               else make_base_loader(cfg)())
     model_name = "M_b" if args.checkpoint else "B"
-    print(f"[placebo] model={model_name}  real={len(real)} items  placebo={len(plac)} items", flush=True)
+    print(f"[placebo] model={model_name}  real={len(real)} items  "
+          f"placebo W-W={len(plac_w)}  placebo B-B={len(plac_b)} items", flush=True)
 
-    def gap(ds):
-        """signed difference of group means: mean P(Yes|White) - mean P(Yes|other)."""
+    def _score(ds):
+        return [(it, score_binary(loaded, task.format_prompt(it, guardrail=None),
+                                  "Yes", "No")["p_positive"]) for it in ds.items]
+
+    def real_gap_of(ds):
+        """Signed demographic gap, ADVANTAGED minus disadvantaged. The group is named
+        explicitly rather than inferred from sort order: alphabetical order happens to
+        give white-black and male-female, but would silently invert the sign on an axis
+        whose advantaged group sorts second (e.g. old/young)."""
         sums, counts = {}, {}
-        for it in ds.items:
-            p = score_binary(loaded, task.format_prompt(it, guardrail=None), "Yes", "No")["p_positive"]
+        for it, p in _score(ds):
             sums[it.group] = sums.get(it.group, 0.0) + p
             counts[it.group] = counts.get(it.group, 0) + 1
         means = {g: sums[g] / counts[g] for g in counts}
-        gs = sorted(means)                          # ['black', 'white'] -> white - black
-        signed = means[gs[1]] - means[gs[0]] if len(gs) >= 2 else None
+        adv, dis = "white", "black"
+        signed = (means[adv] - means[dis]) if (adv in means and dis in means) else None
         return signed, means
 
-    real_gap, real_means = gap(real)
-    plac_gap, plac_means = gap(plac)
+    def placebo_gap_of(ds):
+        """Same-group name-swap noise: mean P(Yes | reference name) - mean P(Yes | swapped
+        name), over the SAME résumés. Reference vs swap is read from meta['placebo_role'],
+        NOT from the group label (which is fictional for the swapped item)."""
+        ref, swp = [], []
+        for it, p in _score(ds):
+            (swp if it.meta.get("placebo_role") == "swap" else ref).append(p)
+        if not ref or not swp:
+            return None, {}
+        return (float(np.mean(ref)) - float(np.mean(swp)),
+                {"reference": float(np.mean(ref)), "swapped": float(np.mean(swp))})
+
+    real_gap, real_means = real_gap_of(real)
+    plac_gap_w, plac_means_w = placebo_gap_of(plac_w)
+    plac_gap_b, plac_means_b = placebo_gap_of(plac_b)
+    # Headline floor = the WORSE (larger-magnitude) of the two within-group floors: a
+    # neutrality claim is only as strong as the noisier group.
+    cands = [g for g in (plac_gap_w, plac_gap_b) if g is not None]
+    plac_gap = max(cands, key=abs) if cands else None
     out = {
         "model": model_name, "checkpoint": args.checkpoint, "template": args.template,
         "n_pairs": len(real) // 2,
         "real_gap": real_gap, "real_gap_abs": abs(real_gap) if real_gap is not None else None,
+        # placebo_gap keeps its original meaning for older readers, but is now the
+        # max-|.| of the two within-group floors rather than the White-White one alone.
         "placebo_gap": plac_gap, "placebo_gap_abs": abs(plac_gap) if plac_gap is not None else None,
-        "real_by_group": real_means, "placebo_by_group": plac_means,
+        "placebo_gap_white_white": plac_gap_w,
+        "placebo_gap_black_black": plac_gap_b,
+        "placebo_by_group_white_white": plac_means_w,
+        "placebo_by_group_black_black": plac_means_b,
+        "placebo_floor_rule": "max(|W-W|, |B-B|); two-sided so group-asymmetric "
+                              "name sensitivity cannot pass undetected",
+        "real_by_group": real_means,
     }
     outp = Path(args.out); outp.mkdir(parents=True, exist_ok=True)
     (outp / "placebo_gap.json").write_text(json.dumps(out, indent=2))
-    print(f"[placebo] {model_name}: real_gap={real_gap:+.3f}  placebo_gap={plac_gap:+.3f}  "
-          f"(|real|-|placebo|={abs(real_gap)-abs(plac_gap):+.3f})")
+    print(f"[placebo] {model_name}: real_gap={real_gap:+.3f}   "
+          f"placebo W-W={plac_gap_w:+.3f}  B-B={plac_gap_b:+.3f}  "
+          f"floor=max|.|={plac_gap:+.3f}  (|real|-|floor|={abs(real_gap)-abs(plac_gap):+.3f})")
     print(f"[placebo] wrote {outp}/placebo_gap.json")
     return 0
 

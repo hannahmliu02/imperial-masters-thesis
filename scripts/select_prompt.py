@@ -37,14 +37,34 @@ from guardrail_ft.cli import add_config_args, resolve_config  # noqa: E402
 GAP_TOL = 0.05
 
 
-def _load_real_and_placebo(path, n_pairs):
+def _load_real_and_placebo(path, n_pairs, placebo_group="white"):
     """Load a real BiasItem JSONL split as the scoring set and derive a PLACEBO null
     from it. Real pairs (white vs black) drive R2's real gap + R3's qualified/unqualified
-    performance. For the placebo we keep each résumé's white member and add a second copy
-    renamed to a DIFFERENT same-group (white) first name, so the placebo 'gap' carries no
-    real demographic contrast -- it measures name-swap noise on the SAME résumés."""
+    performance. For the placebo we keep each résumé's ``placebo_group`` member and add a
+    second copy renamed to a DIFFERENT first name from the SAME group, so the placebo
+    'gap' carries no real demographic contrast -- it measures name-swap noise on the SAME
+    résumés.
+
+    ``placebo_group`` selects WHICH group the floor is estimated in. A White-White
+    placebo alone cannot rule out group-ASYMMETRIC name sensitivity: a prompt could be
+    insensitive among White names and sensitive among Black ones and still pass. Callers
+    that need a defensible neutrality floor should measure both (see
+    ``scripts/measure_placebo_gap.py``, which reports White-White and Black-Black).
+
+    Label convention: the reference item keeps its true group label and the renamed copy
+    takes the OTHER label, purely so that group-keyed gap code (``stats`` below) has two
+    distinct keys to difference. The renamed copy is identifiable by its ``-placebo`` id
+    suffix and by ``meta['placebo_role'] == 'swap'``; prefer those over the group label,
+    which is deliberately fictional for the swapped item.
+    """
     from guardrail_ft.tasks.base import Dataset, BiasItem
-    from guardrail_ft.data.names import BM2004_WHITE_FEMALE, BM2004_WHITE_MALE
+    from guardrail_ft.data.names import (BM2004_WHITE_FEMALE, BM2004_WHITE_MALE,
+                                         BM2004_BLACK_FEMALE, BM2004_BLACK_MALE)
+    if placebo_group not in ("white", "black"):
+        raise ValueError(f"placebo_group must be 'white' or 'black', got {placebo_group!r}")
+    POOLS = {("white", "female"): BM2004_WHITE_FEMALE, ("white", "male"): BM2004_WHITE_MALE,
+             ("black", "female"): BM2004_BLACK_FEMALE, ("black", "male"): BM2004_BLACK_MALE}
+    other = "black" if placebo_group == "white" else "white"
     ds = Dataset.from_jsonl(path, "resume")
     pairs = {}
     for it in ds.items:
@@ -54,18 +74,22 @@ def _load_real_and_placebo(path, n_pairs):
     for p in keep:
         w, b = p["white"], p["black"]
         real_items += [w, b]
-        sex = w.meta.get("sex", "female")
-        pool = BM2004_WHITE_FEMALE if sex == "female" else BM2004_WHITE_MALE
-        name1 = (w.meta.get("signal") or [""])[0]
+        ref = p[placebo_group]
+        sex = ref.meta.get("sex", "female")
+        pool = POOLS[(placebo_group, sex if sex in ("female", "male") else "female")]
+        name1 = (ref.meta.get("signal") or [""])[0]
         first1 = name1.split(" ")[0] if name1 else ""
         surname = name1.split(" ", 1)[1] if " " in name1 else ""
         first2 = next((n for n in pool if n != first1), pool[0])
         name2 = (first2 + " " + surname).strip()
-        body2 = w.body.replace(name1, name2) if name1 else w.body
-        plac_items += [w, BiasItem(id=w.contrast_pair_id + "-placebo", task="resume",
-                                   body=body2, options=["Yes", "No"], gold=w.gold,
-                                   group="black", contrast_pair_id=w.contrast_pair_id,
-                                   condition=w.condition, meta={**w.meta, "signal": [name2]})]
+        body2 = ref.body.replace(name1, name2) if name1 else ref.body
+        plac_items += [ref, BiasItem(id=ref.contrast_pair_id + "-placebo", task="resume",
+                                     body=body2, options=["Yes", "No"], gold=ref.gold,
+                                     group=other, contrast_pair_id=ref.contrast_pair_id,
+                                     condition=ref.condition,
+                                     meta={**ref.meta, "signal": [name2],
+                                           "placebo_role": "swap",
+                                           "placebo_group": placebo_group})]
     return Dataset(task="resume", items=real_items), Dataset(task="resume", items=plac_items)
 
 
